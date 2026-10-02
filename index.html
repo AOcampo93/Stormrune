@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0B1A2E" />
+    <meta name="description" content="Defend a Viking longship from the draugar by drawing Norse runes." />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <title>Stormrune</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+        background: #0b1a2e;
+      }
+
+      /* The Phaser canvas is created inside this element. Drawing runes must
+         never scroll, zoom or select the page, so every default touch gesture
+         is switched off here. */
+      #game {
+        position: fixed;
+        inset: 0;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      /* The game is landscape-only. Locking the orientation from script fails
+         on iOS Safari, so in portrait we simply cover the game with a notice.
+         The game scene pauses itself using the same media query. */
+      #rotate-notice {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 32px;
+        padding: 24px;
+        background: #0b1a2e;
+        color: #ffffff;
+        font: 600 20px/1.4 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        letter-spacing: 0.04em;
+        text-align: center;
+      }
+
+      @media (orientation: portrait) {
+        #rotate-notice {
+          display: flex;
+        }
+      }
+
+      /* A phone outline that keeps tipping from portrait to landscape. */
+      .phone {
+        position: relative;
+        width: 48px;
+        height: 84px;
+        border: 4px solid #00e5ff;
+        border-radius: 11px;
+        box-shadow: 0 0 18px rgba(0, 229, 255, 0.45);
+        animation: tip-phone 2.4s ease-in-out infinite;
+      }
+
+      /* Small speaker slot so the outline reads as a phone. */
+      .phone::before {
+        content: '';
+        position: absolute;
+        top: 6px;
+        left: 50%;
+        width: 14px;
+        height: 3px;
+        margin-left: -7px;
+        border-radius: 2px;
+        background: #00e5ff;
+      }
+
+      @keyframes tip-phone {
+        0%,
+        20% {
+          transform: rotate(0deg);
+        }
+        50%,
+        80% {
+          transform: rotate(-90deg);
+        }
+        100% {
+          transform: rotate(0deg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .phone {
+          animation: none;
+          transform: rotate(-90deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="rotate-notice">
+      <div class="phone" aria-hidden="true"></div>
+      <p>Rotate your device to play</p>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

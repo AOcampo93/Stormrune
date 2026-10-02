@@ -1,0 +1,12 @@
+# Dependencies and build output
+node_modules/
+dist/
+
+# Logs and local tooling
+*.log
+.vite/
+
+# OS / editor noise
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
