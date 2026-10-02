@@ -9,6 +9,13 @@ export class BootScene extends Phaser.Scene {
     super('BootScene');
   }
 
+  preload() {
+    // Relative paths, so the game also works when served from a sub-folder.
+    // Each SVG declares its own width and height, which Phaser rasterizes at.
+    this.load.svg('draugr', 'assets/draugr.svg');
+    this.load.svg('ship', 'assets/ship.svg');
+  }
+
   create() {
     this.scene.start('GameScene');
   }

@@ -1,9 +1,17 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../config/layout.js';
-import { PALETTE } from '../config/palette.js';
+import { GAME_WIDTH, GAME_HEIGHT, HORIZON_Y, SHIP_X, DEPTH } from '../config/layout.js';
+import { PALETTE, COLOR } from '../config/palette.js';
 import { StrokeInput } from '../systems/StrokeInput.js';
 import { RuneRecognizer } from '../systems/RuneRecognizer.js';
-import { RUNE_NAMES } from '../systems/runeTemplates.js';
+import { RUNE_IDS, RUNE_NAMES } from '../systems/runeTemplates.js';
+import { Draugr } from '../entities/Draugr.js';
+
+/**
+ * Draugar rise in one of these lanes (x on the horizon). Spreading them out
+ * keeps their rune panels from piling on top of each other.
+ */
+const LANES = [220, 388, 556, 724, 892, 1060];
+const LANE_JITTER = 30;
 
 /**
  * GameScene orchestrates the gameplay. It wires input, rune recognition,
@@ -20,18 +28,16 @@ export class GameScene extends Phaser.Scene {
    * gameplay state is reset here rather than in the constructor.
    */
   init() {
+    this.draugar = [];
+    this.laneLastUsed = LANES.map(() => -1);
+    this.spawnCount = 0;
     this.strokesHandled = 0;
     this.lastRecognition = null;
   }
 
   create() {
-    this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'STORMRUNE', {
-        fontFamily: 'Georgia, "Times New Roman", serif',
-        fontSize: '72px',
-        color: PALETTE.glow
-      })
-      .setOrigin(0.5);
+    this.createBackground();
+    this.add.image(SHIP_X, GAME_HEIGHT, 'ship').setOrigin(0.5, 1).setDepth(DEPTH.ship);
 
     this.readout = this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT - 60, '', {
@@ -45,6 +51,53 @@ export class GameScene extends Phaser.Scene {
     this.recognizer = new RuneRecognizer();
     this.strokeInput = new StrokeInput(this, (points) => this.handleStroke(points));
     this.setupOrientationPause();
+
+    this.time.addEvent({ delay: 2200, loop: true, callback: this.spawnDraugr, callbackScope: this });
+    this.spawnDraugr();
+  }
+
+  update(time, delta) {
+    for (const draugr of this.draugar) {
+      draugr.update(delta);
+    }
+
+    // Draugar that reach the ship leave the field.
+    for (const draugr of this.draugar.filter((d) => d.hasReachedShip)) {
+      this.removeDraugr(draugr);
+      draugr.destroy();
+    }
+  }
+
+  /** A simple sky and sea until the painted backgrounds arrive. */
+  createBackground() {
+    this.add
+      .rectangle(0, HORIZON_Y, GAME_WIDTH, GAME_HEIGHT - HORIZON_Y, COLOR.seaBack)
+      .setOrigin(0, 0)
+      .setDepth(DEPTH.seaBack);
+  }
+
+  /** Raises a new draugr from the waves, carrying a random rune queue. */
+  spawnDraugr() {
+    const queueLength = Phaser.Math.Between(1, 2);
+    const runeQueue = Array.from({ length: queueLength }, () => Phaser.Utils.Array.GetRandom(RUNE_IDS));
+
+    this.draugar.push(new Draugr(this, { x: this.pickLaneX(), runeQueue, speed: 1 }));
+  }
+
+  /** The least recently used lane, so consecutive draugar never share one. */
+  pickLaneX() {
+    const oldest = Math.min(...this.laneLastUsed);
+    const candidates = LANES.map((_, i) => i).filter((i) => this.laneLastUsed[i] === oldest);
+    const lane = Phaser.Utils.Array.GetRandom(candidates);
+
+    this.laneLastUsed[lane] = this.spawnCount;
+    this.spawnCount += 1;
+    return LANES[lane] + Phaser.Math.Between(-LANE_JITTER, LANE_JITTER);
+  }
+
+  /** Takes a draugr out of play (it can no longer be targeted or counted). */
+  removeDraugr(draugr) {
+    this.draugar = this.draugar.filter((d) => d !== draugr);
   }
 
   /** Called by StrokeInput with every finished stroke. */
@@ -106,7 +159,13 @@ export class GameScene extends Phaser.Scene {
     return {
       paused: this.scene.isPaused(),
       strokesHandled: this.strokesHandled,
-      lastRecognition: this.lastRecognition
+      lastRecognition: this.lastRecognition,
+      alive: this.draugar.length,
+      draugar: this.draugar.map((d) => ({
+        x: Math.round(d.body.x),
+        y: Math.round(d.groundY),
+        queue: [...d.runeQueue]
+      }))
     };
   }
 }
