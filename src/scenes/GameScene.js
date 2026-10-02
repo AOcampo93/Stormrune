@@ -6,6 +6,7 @@ import { RuneRecognizer } from '../systems/RuneRecognizer.js';
 import { RUNE_IDS, RUNE_NAMES } from '../systems/runeTemplates.js';
 import { Lightning } from '../systems/Lightning.js';
 import { Draugr } from '../entities/Draugr.js';
+import { Hud } from '../ui/Hud.js';
 
 /**
  * Draugar rise in one of these lanes (x on the horizon). Spreading them out
@@ -16,6 +17,9 @@ const LANE_JITTER = 30;
 
 /** Points for each draugr destroyed. */
 const KILL_SCORE = 100;
+
+/** Draugar that may board the ship before the game is lost. */
+const STARTING_LIVES = 3;
 
 /**
  * GameScene orchestrates the gameplay. It wires input, rune recognition,
@@ -36,6 +40,9 @@ export class GameScene extends Phaser.Scene {
     this.laneLastUsed = LANES.map(() => -1);
     this.spawnCount = 0;
     this.score = 0;
+    this.lives = STARTING_LIVES;
+    this.level = 1;
+    this.isGameOver = false;
 
     // Counters for "?debug" checks.
     this.strokesHandled = 0;
@@ -51,15 +58,10 @@ export class GameScene extends Phaser.Scene {
     this.createBackground();
     this.add.image(SHIP_X, GAME_HEIGHT, 'ship').setOrigin(0.5, 1).setDepth(DEPTH.ship);
     this.createEffects();
+    this.hud = new Hud(this, { lives: this.lives, score: this.score, level: this.level });
 
-    this.scoreText = this.add
-      .text(GAME_WIDTH / 2, SAFE_MARGIN, '0', {
-        fontFamily: 'Georgia, "Times New Roman", serif',
-        fontSize: '40px',
-        color: PALETTE.white
-      })
-      .setOrigin(0.5, 0)
-      .setDepth(DEPTH.hud);
+    // Red edges flashed when a draugr boards the ship (see loseLife()).
+    this.vignette = this.add.image(0, 0, 'vignette').setOrigin(0, 0).setAlpha(0).setDepth(DEPTH.vignette);
 
     if (this.debug) {
       this.readout = this.add
@@ -78,19 +80,27 @@ export class GameScene extends Phaser.Scene {
     this.strokeInput = new StrokeInput(this, (points) => this.handleStroke(points));
     this.setupOrientationPause();
 
-    this.time.addEvent({ delay: 2200, loop: true, callback: this.spawnDraugr, callbackScope: this });
+    this.spawnTimer = this.time.addEvent({ delay: 2200, loop: true, callback: this.spawnDraugr, callbackScope: this });
     this.spawnDraugr();
+
+    this.cameras.main.fadeIn(400);
   }
 
   update(time, delta) {
+    // Once the game is lost everything freezes while the screen fades out.
+    if (this.isGameOver) {
+      return;
+    }
+
     for (const draugr of this.draugar) {
       draugr.update(delta);
     }
 
-    // Draugar that reach the ship leave the field.
+    // A draugr that reaches the ship boards it: the player loses a life.
     for (const draugr of this.draugar.filter((d) => d.hasReachedShip)) {
       this.removeDraugr(draugr);
       draugr.destroy();
+      this.loseLife();
     }
   }
 
@@ -228,7 +238,7 @@ export class GameScene extends Phaser.Scene {
 
   addScore(points, x, y) {
     this.score += points;
-    this.scoreText.setText(String(this.score));
+    this.hud.setScore(this.score);
 
     // A "+100" that floats up from the kill and fades.
     const popup = this.add
@@ -247,6 +257,42 @@ export class GameScene extends Phaser.Scene {
       ease: 'Quad.easeOut',
       onComplete: () => popup.destroy()
     });
+  }
+
+  /** A draugr boarded the ship: shake, flash red, and maybe end the game. */
+  loseLife() {
+    // Several draugar can board in the same frame; only the first one that
+    // empties the lives counts.
+    if (this.isGameOver) {
+      return;
+    }
+
+    this.lives -= 1;
+    this.hud.setLives(this.lives);
+
+    if (!this.reducedMotion) {
+      this.cameras.main.shake(300, 0.012);
+    }
+    this.tweens.killTweensOf(this.vignette);
+    this.vignette.setAlpha(1);
+    this.tweens.add({ targets: this.vignette, alpha: 0, duration: 700, ease: 'Quad.easeOut' });
+
+    if (this.lives <= 0) {
+      this.gameOver();
+    }
+  }
+
+  /** Stops play, fades to black, then shows the final score. */
+  gameOver() {
+    this.isGameOver = true;
+    this.strokeInput.setEnabled(false);
+    this.spawnTimer.remove();
+
+    const camera = this.cameras.main;
+    camera.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.start('GameOverScene', { score: this.score, level: this.level });
+    });
+    camera.fadeOut(900, 0, 0, 0);
   }
 
   /**
@@ -319,6 +365,9 @@ export class GameScene extends Phaser.Scene {
     return {
       paused: this.scene.isPaused(),
       score: this.score,
+      lives: this.lives,
+      level: this.level,
+      gameOver: this.isGameOver,
       strokesHandled: this.strokesHandled,
       castCount: this.castCount,
       lastRecognition: this.lastRecognition,

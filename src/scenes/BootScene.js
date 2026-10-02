@@ -18,7 +18,31 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     this.createParticleTextures();
+    this.createVignetteTexture();
     this.scene.start('GameScene');
+  }
+
+  /**
+   * A full-screen red vignette (clear in the middle, red at the edges),
+   * flashed when a draugr boards the ship. Graphics cannot draw radial
+   * gradients into a texture, so this one is painted on a canvas.
+   */
+  createVignetteTexture() {
+    const { width, height } = this.scale;
+    const texture = this.textures.createCanvas('vignette', width, height);
+    const ctx = texture.context;
+
+    const gradient = ctx.createRadialGradient(
+      width / 2, height / 2, height * 0.35,
+      width / 2, height / 2, width * 0.62
+    );
+    gradient.addColorStop(0, 'rgba(229, 57, 53, 0)');
+    gradient.addColorStop(1, 'rgba(229, 57, 53, 0.85)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    // Upload the finished drawing to the GPU (required under WebGL).
+    texture.refresh();
   }
 
   /**
