@@ -12,6 +12,9 @@ export class BootScene extends Phaser.Scene {
   preload() {
     // Relative paths, so the game also works when served from a sub-folder.
     // Each SVG declares its own width and height, which Phaser rasterizes at.
+    this.load.svg('sky', 'assets/sky.svg');
+    this.load.svg('sea-back', 'assets/sea-back.svg');
+    this.load.svg('sea-front', 'assets/sea-front.svg');
     this.load.svg('draugr', 'assets/draugr.svg');
     this.load.svg('ship', 'assets/ship.svg');
   }
@@ -67,6 +70,12 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0xffffff, 0.45);
     g.fillCircle(10, 10, 6);
     g.generateTexture('puff', 20, 20);
+    g.clear();
+
+    // 'raindrop': a thin vertical streak.
+    g.fillStyle(0xffffff, 1);
+    g.fillRect(0, 0, 2, 18);
+    g.generateTexture('raindrop', 2, 18);
 
     g.destroy();
   }

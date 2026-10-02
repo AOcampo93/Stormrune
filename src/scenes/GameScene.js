@@ -23,6 +23,15 @@ const KILL_SCORE = 100;
 const STARTING_LIVES = 3;
 
 /**
+ * Background scroll speeds in px per ms. Layers further away move slower,
+ * which gives the scene depth (parallax).
+ */
+const SCROLL_SPEED = { sky: 0.004, seaBack: 0.018, seaFront: 0.05 };
+
+/** Height of the near wave band at the bottom of the screen. */
+const SEA_FRONT_HEIGHT = 130;
+
+/**
  * GameScene orchestrates the gameplay. It wires input, rune recognition,
  * enemies, effects and the HUD together, but leaves the details of each to
  * its own module so this file reads like a summary of the rules.
@@ -90,6 +99,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    this.scrollBackground(delta);
+
     // Once the game is lost everything freezes while the screen fades out.
     if (this.isGameOver) {
       return;
@@ -107,12 +118,47 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** A simple sky and sea until the painted backgrounds arrive. */
+  /**
+   * Sky and sea are TileSprites: wide images that repeat sideways, so
+   * shifting their tile position scrolls them forever without seams.
+   * The near wave band sits in front of the draugar (they wade through it)
+   * but behind the ship. Rain falls over everything except effects and HUD.
+   */
   createBackground() {
-    this.add
-      .rectangle(0, HORIZON_Y, GAME_WIDTH, GAME_HEIGHT - HORIZON_Y, COLOR.seaBack)
+    this.sky = this.add.tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, 'sky').setOrigin(0, 0).setDepth(DEPTH.sky);
+
+    // Nudged up a little so the wave crests break the horizon line.
+    this.seaBack = this.add
+      .tileSprite(0, HORIZON_Y - 8, GAME_WIDTH, 400, 'sea-back')
       .setOrigin(0, 0)
       .setDepth(DEPTH.seaBack);
+
+    this.seaFront = this.add
+      .tileSprite(0, GAME_HEIGHT - SEA_FRONT_HEIGHT, GAME_WIDTH, SEA_FRONT_HEIGHT, 'sea-front')
+      .setOrigin(0, 0)
+      .setDepth(DEPTH.seaFront);
+
+    // Slanted rain: streaks spawn above the screen and are tilted to match
+    // their sideways drift.
+    this.add
+      .particles(0, -30, 'raindrop', {
+        x: { min: -100, max: GAME_WIDTH + 250 },
+        speedX: { min: -260, max: -200 },
+        speedY: { min: 900, max: 1200 },
+        rotate: 12,
+        lifespan: 900,
+        frequency: 16,
+        quantity: 2,
+        scale: { min: 0.6, max: 1.1 },
+        alpha: { min: 0.12, max: 0.35 }
+      })
+      .setDepth(DEPTH.rain);
+  }
+
+  scrollBackground(delta) {
+    this.sky.tilePositionX += SCROLL_SPEED.sky * delta;
+    this.seaBack.tilePositionX += SCROLL_SPEED.seaBack * delta;
+    this.seaFront.tilePositionX += SCROLL_SPEED.seaFront * delta;
   }
 
   /**

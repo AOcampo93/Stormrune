@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="400" viewBox="0 0 2048 400">
+  <!-- Far sea band, horizontally tileable: the wave edge has 16 whole periods
+       and every highlight row repeats at a spacing that divides 2048. -->
+  <defs>
+    <linearGradient id="haze" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.10"/>
+      <stop offset="0.35" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0A121E" stop-opacity="0.30"/>
+    </linearGradient>
+  </defs>
+  <path d="M0 9 C23 5 41 5 64 9 C87 13 105 13 128 9 C151 5 169 5 192 9 C215 13 233 13 256 9 C279 5 297 5 320 9 C343 13 361 13 384 9 C407 5 425 5 448 9 C471 13 489 13 512 9 C535 5 553 5 576 9 C599 13 617 13 640 9 C663 5 681 5 704 9 C727 13 745 13 768 9 C791 5 809 5 832 9 C855 13 873 13 896 9 C919 5 937 5 960 9 C983 13 1001 13 1024 9 C1047 5 1065 5 1088 9 C1111 13 1129 13 1152 9 C1175 5 1193 5 1216 9 C1239 13 1257 13 1280 9 C1303 5 1321 5 1344 9 C1367 13 1385 13 1408 9 C1431 5 1449 5 1472 9 C1495 13 1513 13 1536 9 C1559 5 1577 5 1600 9 C1623 13 1641 13 1664 9 C1687 5 1705 5 1728 9 C1751 13 1769 13 1792 9 C1815 5 1833 5 1856 9 C1879 13 1897 13 1920 9 C1943 5 1961 5 1984 9 C2007 13 2025 13 2048 9 L2048 400 L0 400 Z" fill="#0D47A1"/>
+  <path d="M0 9 C23 5 41 5 64 9 C87 13 105 13 128 9 C151 5 169 5 192 9 C215 13 233 13 256 9 C279 5 297 5 320 9 C343 13 361 13 384 9 C407 5 425 5 448 9 C471 13 489 13 512 9 C535 5 553 5 576 9 C599 13 617 13 640 9 C663 5 681 5 704 9 C727 13 745 13 768 9 C791 5 809 5 832 9 C855 13 873 13 896 9 C919 5 937 5 960 9 C983 13 1001 13 1024 9 C1047 5 1065 5 1088 9 C1111 13 1129 13 1152 9 C1175 5 1193 5 1216 9 C1239 13 1257 13 1280 9 C1303 5 1321 5 1344 9 C1367 13 1385 13 1408 9 C1431 5 1449 5 1472 9 C1495 13 1513 13 1536 9 C1559 5 1577 5 1600 9 C1623 13 1641 13 1664 9 C1687 5 1705 5 1728 9 C1751 13 1769 13 1792 9 C1815 5 1833 5 1856 9 C1879 13 1897 13 1920 9 C1943 5 1961 5 1984 9 C2007 13 2025 13 2048 9 L2048 400 L0 400 Z" fill="url(#haze)"/>
+  <path d="M20 34 q13 -3 26 0 M148 34 q13 -3 26 0 M276 34 q13 -3 26 0 M404 34 q13 -3 26 0 M532 34 q13 -3 26 0 M660 34 q13 -3 26 0 M788 34 q13 -3 26 0 M916 34 q13 -3 26 0 M1044 34 q13 -3 26 0 M1172 34 q13 -3 26 0 M1300 34 q13 -3 26 0 M1428 34 q13 -3 26 0 M1556 34 q13 -3 26 0 M1684 34 q13 -3 26 0 M1812 34 q13 -3 26 0 M1940 34 q13 -3 26 0" fill="none" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="2" stroke-linecap="round"/>
+  <path d="M84 66 q17 -4 34 0 M212 66 q17 -4 34 0 M340 66 q17 -4 34 0 M468 66 q17 -4 34 0 M596 66 q17 -4 34 0 M724 66 q17 -4 34 0 M852 66 q17 -4 34 0 M980 66 q17 -4 34 0 M1108 66 q17 -4 34 0 M1236 66 q17 -4 34 0 M1364 66 q17 -4 34 0 M1492 66 q17 -4 34 0 M1620 66 q17 -4 34 0 M1748 66 q17 -4 34 0 M1876 66 q17 -4 34 0 M2004 66 q17 -4 34 0" fill="none" stroke="#FFFFFF" stroke-opacity="0.15" stroke-width="2" stroke-linecap="round"/>
+  <path d="M40 112 q24 -6 48 0 M296 112 q24 -6 48 0 M552 112 q24 -6 48 0 M808 112 q24 -6 48 0 M1064 112 q24 -6 48 0 M1320 112 q24 -6 48 0 M1576 112 q24 -6 48 0 M1832 112 q24 -6 48 0" fill="none" stroke="#FFFFFF" stroke-opacity="0.14" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M170 168 q30 -7 60 0 M426 168 q30 -7 60 0 M682 168 q30 -7 60 0 M938 168 q30 -7 60 0 M1194 168 q30 -7 60 0 M1450 168 q30 -7 60 0 M1706 168 q30 -7 60 0 M1962 168 q30 -7 60 0" fill="none" stroke="#FFFFFF" stroke-opacity="0.13" stroke-width="3" stroke-linecap="round"/>
+  <path d="M110 240 q42 -10 84 0 M622 240 q42 -10 84 0 M1134 240 q42 -10 84 0 M1646 240 q42 -10 84 0" fill="none" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M360 320 q55 -12 110 0 M872 320 q55 -12 110 0 M1384 320 q55 -12 110 0 M1896 320 q55 -12 110 0" fill="none" stroke="#FFFFFF" stroke-opacity="0.11" stroke-width="4" stroke-linecap="round"/>
+</svg>
