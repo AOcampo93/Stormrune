@@ -17,6 +17,33 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    this.createParticleTextures();
     this.scene.start('GameScene');
+  }
+
+  /**
+   * Particle textures are tiny white shapes; each emitter tints them.
+   * They are drawn once with a Graphics object, baked into textures with
+   * generateTexture(), and the Graphics is thrown away.
+   */
+  createParticleTextures() {
+    const g = this.make.graphics({}, false);
+
+    // 'spark': a bright dot with a soft edge (lightning hits, deaths).
+    g.fillStyle(0xffffff, 0.35);
+    g.fillCircle(6, 6, 6);
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(6, 6, 3);
+    g.generateTexture('spark', 12, 12);
+    g.clear();
+
+    // 'puff': a soft, round wisp of smoke (failed casts).
+    g.fillStyle(0xffffff, 0.25);
+    g.fillCircle(10, 10, 10);
+    g.fillStyle(0xffffff, 0.45);
+    g.fillCircle(10, 10, 6);
+    g.generateTexture('puff', 20, 20);
+
+    g.destroy();
   }
 }
