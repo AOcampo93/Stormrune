@@ -7,6 +7,7 @@ import { RUNE_IDS, RUNE_NAMES } from '../systems/runeTemplates.js';
 import { Lightning } from '../systems/Lightning.js';
 import { Draugr } from '../entities/Draugr.js';
 import { Hud } from '../ui/Hud.js';
+import { getLevelConfig } from '../config/levels.js';
 
 /**
  * Draugar rise in one of these lanes (x on the horizon). Spreading them out
@@ -42,7 +43,11 @@ export class GameScene extends Phaser.Scene {
     this.score = 0;
     this.lives = STARTING_LIVES;
     this.level = 1;
+    this.levelConfig = getLevelConfig(1);
+    this.kills = 0; // draugar destroyed in the current level
+    this.isLevelTransition = true; // true while the LEVEL banner shows
     this.isGameOver = false;
+    this.spawnTimer = null;
 
     // Counters for "?debug" checks.
     this.strokesHandled = 0;
@@ -80,10 +85,8 @@ export class GameScene extends Phaser.Scene {
     this.strokeInput = new StrokeInput(this, (points) => this.handleStroke(points));
     this.setupOrientationPause();
 
-    this.spawnTimer = this.time.addEvent({ delay: 2200, loop: true, callback: this.spawnDraugr, callbackScope: this });
-    this.spawnDraugr();
-
     this.cameras.main.fadeIn(400);
+    this.startLevel(1);
   }
 
   update(time, delta) {
@@ -155,12 +158,104 @@ export class GameScene extends Phaser.Scene {
       .setDepth(DEPTH.effects);
   }
 
-  /** Raises a new draugr from the waves, carrying a random rune queue. */
+  /**
+   * Shows the LEVEL banner, then starts spawning with that level's settings.
+   * A level is cleared by destroying `enemiesToClear` draugar.
+   */
+  startLevel(level) {
+    this.level = level;
+    this.levelConfig = getLevelConfig(level);
+    this.kills = 0;
+    this.isLevelTransition = true;
+    this.hud.setLevel(level);
+
+    this.showLevelBanner(level, () => {
+      this.isLevelTransition = false;
+      this.spawnDraugr(); // the first draugr rises right after the banner
+      this.spawnTimer = this.time.addEvent({
+        delay: this.levelConfig.spawnDelayMs,
+        loop: true,
+        callback: this.spawnDraugr,
+        callbackScope: this
+      });
+    });
+  }
+
+  /** All draugar of this level are destroyed: on to the next one. */
+  completeLevel() {
+    // A single cast can destroy several draugar; only advance once.
+    if (this.isLevelTransition) {
+      return;
+    }
+    this.isLevelTransition = true;
+    this.spawnTimer.remove();
+
+    // Let the last death animation play before the next banner.
+    this.time.delayedCall(700, () => this.startLevel(this.level + 1));
+  }
+
+  /** "LEVEL N" grows in, holds, then fades away and calls `onDone`. */
+  showLevelBanner(level, onDone) {
+    const serif = 'Georgia, "Times New Roman", serif';
+    const items = [
+      this.add
+        .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.36, `LEVEL ${level}`, {
+          fontFamily: serif,
+          fontSize: '96px',
+          color: PALETTE.accent,
+          stroke: PALETTE.silhouette,
+          strokeThickness: 10
+        })
+        .setOrigin(0.5)
+    ];
+
+    // A one-line hint the very first time, since there is no tutorial.
+    if (level === 1) {
+      items.push(
+        this.add
+          .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.36 + 80, 'Draw the glowing rune above a draugr to strike it', {
+            fontFamily: serif,
+            fontSize: '30px',
+            color: PALETTE.white,
+            stroke: PALETTE.silhouette,
+            strokeThickness: 6
+          })
+          .setOrigin(0.5)
+      );
+    }
+
+    for (const item of items) {
+      item.setDepth(DEPTH.banner).setAlpha(0).setScale(0.7);
+    }
+
+    this.tweens.chain({
+      targets: items,
+      tweens: [
+        { alpha: 1, scale: 1, duration: 350, ease: 'Back.easeOut' },
+        { alpha: 0, scale: 1.1, duration: 350, ease: 'Quad.easeIn', delay: level === 1 ? 1600 : 800 }
+      ],
+      onComplete: () => {
+        items.forEach((item) => item.destroy());
+        onDone();
+      }
+    });
+  }
+
+  /**
+   * Raises a new draugr from the waves with a random rune queue. Only as
+   * many draugar exist as are still needed to clear the level, so one that
+   * boards the ship is replaced and each level ends with an empty sea.
+   */
   spawnDraugr() {
-    const queueLength = Phaser.Math.Between(1, 2);
+    const { enemiesToClear, maxQueue, speed } = this.levelConfig;
+    if (this.isLevelTransition || this.kills + this.draugar.length >= enemiesToClear) {
+      return;
+    }
+
+    const queueLength = Phaser.Math.Between(1, maxQueue);
     const runeQueue = Array.from({ length: queueLength }, () => Phaser.Utils.Array.GetRandom(RUNE_IDS));
 
-    this.draugar.push(new Draugr(this, { x: this.pickLaneX(), runeQueue, speed: 1 }));
+    this.draugar.push(new Draugr(this, { x: this.pickLaneX(), runeQueue, speed }));
   }
 
   /** The least recently used lane, so consecutive draugar never share one. */
@@ -234,6 +329,11 @@ export class GameScene extends Phaser.Scene {
     this.burst.explode(28, x, y);
     draugr.die();
     this.addScore(KILL_SCORE, x, y);
+
+    this.kills += 1;
+    if (this.kills >= this.levelConfig.enemiesToClear) {
+      this.completeLevel();
+    }
   }
 
   addScore(points, x, y) {
@@ -286,7 +386,7 @@ export class GameScene extends Phaser.Scene {
   gameOver() {
     this.isGameOver = true;
     this.strokeInput.setEnabled(false);
-    this.spawnTimer.remove();
+    this.spawnTimer?.remove();
 
     const camera = this.cameras.main;
     camera.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
@@ -367,6 +467,9 @@ export class GameScene extends Phaser.Scene {
       score: this.score,
       lives: this.lives,
       level: this.level,
+      levelConfig: this.levelConfig,
+      kills: this.kills,
+      inTransition: this.isLevelTransition,
       gameOver: this.isGameOver,
       strokesHandled: this.strokesHandled,
       castCount: this.castCount,
