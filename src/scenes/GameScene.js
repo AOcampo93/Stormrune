@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../config/layout.js';
 import { PALETTE } from '../config/palette.js';
 import { StrokeInput } from '../systems/StrokeInput.js';
+import { RuneRecognizer } from '../systems/RuneRecognizer.js';
+import { RUNE_NAMES } from '../systems/runeTemplates.js';
 
 /**
  * GameScene orchestrates the gameplay. It wires input, rune recognition,
@@ -19,6 +21,7 @@ export class GameScene extends Phaser.Scene {
    */
   init() {
     this.strokesHandled = 0;
+    this.lastRecognition = null;
   }
 
   create() {
@@ -39,6 +42,7 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(DEPTH.hud);
 
+    this.recognizer = new RuneRecognizer();
     this.strokeInput = new StrokeInput(this, (points) => this.handleStroke(points));
     this.setupOrientationPause();
   }
@@ -46,7 +50,16 @@ export class GameScene extends Phaser.Scene {
   /** Called by StrokeInput with every finished stroke. */
   handleStroke(points) {
     this.strokesHandled += 1;
-    this.readout.setText(`stroke: ${points.length} points`);
+
+    const rune = this.recognizer.recognize(points);
+    this.lastRecognition = rune;
+
+    if (rune) {
+      this.readout.setText(`${RUNE_NAMES[rune.name]} · ${rune.score.toFixed(2)}`);
+    } else {
+      const best = this.recognizer.bestMatch(points);
+      this.readout.setText(best ? `fizzle (closest: ${best.name} ${best.score.toFixed(2)})` : 'fizzle');
+    }
   }
 
   /**
@@ -92,7 +105,8 @@ export class GameScene extends Phaser.Scene {
   getDebugState() {
     return {
       paused: this.scene.isPaused(),
-      strokesHandled: this.strokesHandled
+      strokesHandled: this.strokesHandled,
+      lastRecognition: this.lastRecognition
     };
   }
 }
