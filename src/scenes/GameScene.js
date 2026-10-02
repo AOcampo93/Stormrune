@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config/layout.js';
+import { GAME_WIDTH, GAME_HEIGHT, DEPTH } from '../config/layout.js';
 import { PALETTE } from '../config/palette.js';
+import { StrokeInput } from '../systems/StrokeInput.js';
 
 /**
  * GameScene orchestrates the gameplay. It wires input, rune recognition,
@@ -12,6 +13,14 @@ export class GameScene extends Phaser.Scene {
     super('GameScene');
   }
 
+  /**
+   * Phaser reuses this scene object when the game restarts, so every piece of
+   * gameplay state is reset here rather than in the constructor.
+   */
+  init() {
+    this.strokesHandled = 0;
+  }
+
   create() {
     this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'STORMRUNE', {
@@ -21,7 +30,23 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    this.readout = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 60, '', {
+        fontFamily: 'monospace',
+        fontSize: '24px',
+        color: PALETTE.white
+      })
+      .setOrigin(0.5)
+      .setDepth(DEPTH.hud);
+
+    this.strokeInput = new StrokeInput(this, (points) => this.handleStroke(points));
     this.setupOrientationPause();
+  }
+
+  /** Called by StrokeInput with every finished stroke. */
+  handleStroke(points) {
+    this.strokesHandled += 1;
+    this.readout.setText(`stroke: ${points.length} points`);
   }
 
   /**
@@ -66,7 +91,8 @@ export class GameScene extends Phaser.Scene {
   /** Snapshot of the gameplay state for "?debug" browser tests. */
   getDebugState() {
     return {
-      paused: this.scene.isPaused()
+      paused: this.scene.isPaused(),
+      strokesHandled: this.strokesHandled
     };
   }
 }
