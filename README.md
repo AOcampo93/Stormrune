@@ -109,6 +109,7 @@ src/
   entities/Draugr.js         enemy: wading walk, rune queue, death by lightning
   entities/Longship.js       the boat, in layers; rocks, carrying Thor with it
   entities/ShipWater.js      breaking waves, the pool on deck, splashes against the hull
+  entities/CameraSpray.js    spray thrown up at the camera from the bottom corners
   entities/Thor.js           the hero's animations: idle, three attacks, hurt, death
   ui/Hud.js                  lives, score and level
   config/levels.js           difficulty table and endless scaling
@@ -171,6 +172,14 @@ pose. The drops are particles that fly into the boat and fall back. On deck, a p
 sea water sloshes around Thor's feet: its surface bobs and tilts against the boat's
 tilt, with glints and spreading ripples. Small splashes keep bursting where the hull
 meets the sea.
+
+**Right in front of the camera.** When the stern slaps down into the sea on one side,
+spray shoots up from that bottom corner of the screen and past the lens. A haze swells
+over the corner, huge blurred drops flash by, and droplets and streaks arc inward and
+fall back. The stronger splashes leave drops on the lens that slide down and dry off.
+The spray stays under the rune panels and the HUD. Every cast that strikes shakes the
+screen briefly, less than a draugr boarding does. Players who ask their system for
+reduced motion get no shakes or flashes.
 
 **Sprite pipeline.** Each design draws every frame of an animation as SVG.
 `scripts/export-sprites.mjs` opens them in headless Chrome, sets design options where

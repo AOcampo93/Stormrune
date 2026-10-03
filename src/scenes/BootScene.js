@@ -28,8 +28,90 @@ export class BootScene extends Phaser.Scene {
     }
 
     this.createParticleTextures();
+    this.createLensTextures();
     this.createVignetteTexture();
     this.scene.start('GameScene');
+  }
+
+  /**
+   * Water right in front of the camera (see CameraSpray). These need
+   * gradients, so they are painted on canvases:
+   *   'spray-blob'    - a drop flying past the lens, out of focus,
+   *   'spray-haze'    - a soft cloud of mist,
+   *   'spray-droplet' - a small drop in focus: a tight bright core,
+   *   'spray-streak'  - a fast drop blurred along its flight, bright at the
+   *                     head (top) and clear at the tail,
+   *   'lens-drop'     - a drop that landed on the lens.
+   */
+  createLensTextures() {
+    const paint = (key, width, height, draw) => {
+      const texture = this.textures.createCanvas(key, width, height);
+      draw(texture.context, width, height);
+      texture.refresh();
+    };
+    const radial = (ctx, size, stops) => {
+      const r = size / 2;
+      const gradient = ctx.createRadialGradient(r, r, 0, r, r, r);
+      stops.forEach(([offset, alpha]) => gradient.addColorStop(offset, `rgba(255, 255, 255, ${alpha})`));
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+    };
+
+    // A blurred drop: an even disc, a little brighter toward its soft rim.
+    paint('spray-blob', 64, 64, (ctx) => radial(ctx, 64, [[0, 0.35], [0.72, 0.5], [0.86, 0.3], [1, 0]]));
+    paint('spray-haze', 64, 64, (ctx) => radial(ctx, 64, [[0, 0.5], [0.5, 0.25], [1, 0]]));
+    paint('spray-droplet', 10, 10, (ctx) => radial(ctx, 10, [[0, 1], [0.45, 0.9], [0.7, 0.25], [1, 0]]));
+
+    paint('spray-streak', 6, 36, (ctx, width, height) => {
+      const gradient = ctx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      gradient.addColorStop(0.25, 'rgba(255, 255, 255, 0.7)');
+      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(1.5, 0, width - 3, height);
+    });
+
+    // A drop on the glass is nearly clear: the scene shows through, darker
+    // toward its rim. Light bends into a soft crescent along the bottom,
+    // brightest in the middle, and a small soft highlight sits near the top.
+    paint('lens-drop', 48, 48, (ctx, size) => {
+      const r = size / 2;
+      const radius = r - 4;
+      const body = ctx.createRadialGradient(r, r, 0, r, r, radius);
+      body.addColorStop(0, 'rgba(200, 225, 245, 0.03)');
+      body.addColorStop(0.7, 'rgba(10, 20, 35, 0.06)');
+      body.addColorStop(1, 'rgba(5, 12, 24, 0.3)');
+      ctx.fillStyle = body;
+      ctx.beginPath();
+      ctx.arc(r, r, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      const crescent = ctx.createLinearGradient(r - radius, 0, r + radius, 0);
+      crescent.addColorStop(0, 'rgba(235, 247, 255, 0)');
+      crescent.addColorStop(0.5, 'rgba(235, 247, 255, 0.6)');
+      crescent.addColorStop(1, 'rgba(235, 247, 255, 0)');
+      ctx.strokeStyle = crescent;
+      for (const [lineWidth, alpha] of [[4, 0.35], [1.5, 1]]) {
+        ctx.lineWidth = lineWidth;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(r, r, radius - 2, Math.PI * 0.18, Math.PI * 0.82);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      ctx.save();
+      ctx.translate(r - radius * 0.38, r - radius * 0.45);
+      ctx.scale(1.6, 1);
+      const glint = ctx.createRadialGradient(0, 0, 0, 0, 0, 3);
+      glint.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+      glint.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = glint;
+      ctx.beginPath();
+      ctx.arc(0, 0, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
   }
 
   /**

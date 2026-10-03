@@ -76,6 +76,7 @@ export const DEPTH = {
   shipWater: 1110, // spray bursting against the hull
   rain: 1200,
   effects: 1300,
+  lens: 1350, // spray and drops right in front of the camera
   runePanels: 1400, // + a fraction of y, so nearer queues sit on top
   trail: 1500,
   hud: 1600,

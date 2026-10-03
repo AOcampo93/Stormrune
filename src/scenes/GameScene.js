@@ -9,6 +9,7 @@ import { Lightning } from '../systems/Lightning.js';
 import { Draugr } from '../entities/Draugr.js';
 import { Longship } from '../entities/Longship.js';
 import { ShipWater } from '../entities/ShipWater.js';
+import { CameraSpray } from '../entities/CameraSpray.js';
 import { Thor } from '../entities/Thor.js';
 import { Hud } from '../ui/Hud.js';
 import { getLevelConfig } from '../config/levels.js';
@@ -29,6 +30,10 @@ const STARTING_LIVES = 3;
 
 /** Distant lightning over the sea every few seconds (ms, random in range). */
 const AMBIENT_LIGHTNING_MS = { min: 5000, max: 11000 };
+
+/** Thor's lightning shakes the screen: less than a draugr boarding does. */
+const STRIKE_SHAKE = { duration: 200, intensity: 0.006 };
+const BOARDING_SHAKE = { duration: 300, intensity: 0.012 };
 
 /**
  * GameScene orchestrates the gameplay. It wires input, rune recognition,
@@ -76,6 +81,8 @@ export class GameScene extends Phaser.Scene {
     this.shipWater = new ShipWater(this, this.longship);
     this.thor = new Thor(this);
     this.longship.carry(this.thor.sprite);
+    // Spray thrown up at the camera from the bottom corners.
+    this.cameraSpray = new CameraSpray(this, this.longship);
     this.createEffects();
     this.hud = new Hud(this, { lives: this.lives, score: this.score, level: this.level });
 
@@ -107,6 +114,7 @@ export class GameScene extends Phaser.Scene {
   update(time, delta) {
     this.longship.update(delta);
     this.shipWater.update(delta);
+    this.cameraSpray.update();
 
     // Once the game is lost everything freezes while the screen fades out.
     if (this.isGameOver) {
@@ -381,7 +389,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.castCount += 1;
-    this.flashCamera();
+    this.strikeCamera();
     this.thor.attack(runeId);
 
     for (const draugr of targets) {
@@ -453,7 +461,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (!this.reducedMotion) {
-      this.cameras.main.shake(300, 0.012);
+      this.cameras.main.shake(BOARDING_SHAKE.duration, BOARDING_SHAKE.intensity);
     }
     this.tweens.killTweensOf(this.vignette);
     this.vignette.setAlpha(1);
@@ -480,14 +488,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * One short, soft cyan flash per cast, however many draugar it hits.
-   * The flash starts at 30% opacity instead of a full-screen white frame.
+   * Thor's lightning lands: the screen shakes and flashes a soft cyan, once
+   * per cast however many draugar it hits. The flash starts at 30% opacity
+   * instead of a full-screen white frame.
    */
-  flashCamera() {
+  strikeCamera() {
     if (this.reducedMotion) {
       return;
     }
     const camera = this.cameras.main;
+    camera.shake(STRIKE_SHAKE.duration, STRIKE_SHAKE.intensity);
     camera.flashEffect.alpha = 0.3;
     camera.flash(100, 0, 229, 255);
   }
@@ -549,6 +559,9 @@ export class GameScene extends Phaser.Scene {
     return {
       fps: Math.round(this.game.loop.actualFps),
       wavesAboard: this.shipWater.wavesAboard,
+      cameraSplashes: this.cameraSpray.splashes,
+      // The camera is gone once the scene has shut down (game over).
+      shaking: this.cameras.main?.shakeEffect.isRunning ?? false,
       paused: this.scene.isPaused(),
       score: this.score,
       lives: this.lives,
