@@ -8,6 +8,7 @@ import { RUNE_IDS, RUNE_NAMES } from '../systems/runeTemplates.js';
 import { Lightning } from '../systems/Lightning.js';
 import { Draugr } from '../entities/Draugr.js';
 import { Longship } from '../entities/Longship.js';
+import { ShipWater } from '../entities/ShipWater.js';
 import { Thor } from '../entities/Thor.js';
 import { Hud } from '../ui/Hud.js';
 import { getLevelConfig } from '../config/levels.js';
@@ -71,6 +72,8 @@ export class GameScene extends Phaser.Scene {
 
     // Thor rides inside the longship's container, so he rocks with the deck.
     this.longship = new Longship(this);
+    // The sea against the hull, waves washing aboard and water on the deck.
+    this.shipWater = new ShipWater(this, this.longship);
     this.thor = new Thor(this);
     this.longship.carry(this.thor.sprite);
     this.createEffects();
@@ -103,6 +106,7 @@ export class GameScene extends Phaser.Scene {
 
   update(time, delta) {
     this.longship.update(delta);
+    this.shipWater.update(delta);
 
     // Once the game is lost everything freezes while the screen fades out.
     if (this.isGameOver) {
@@ -542,6 +546,7 @@ export class GameScene extends Phaser.Scene {
   getDebugState() {
     return {
       fps: Math.round(this.game.loop.actualFps),
+      wavesAboard: this.shipWater.wavesAboard,
       paused: this.scene.isPaused(),
       score: this.score,
       lives: this.lives,

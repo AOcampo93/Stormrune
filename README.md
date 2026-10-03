@@ -108,6 +108,7 @@ src/
   systems/spriteSheets.js    loads sheets; joins animations split over several sheets
   entities/Draugr.js         enemy: wading walk, rune queue, death by lightning
   entities/Longship.js       the boat; rocks, carrying Thor with it
+  entities/ShipWater.js      the sea against the hull, waves washing aboard, water on deck
   entities/Thor.js           the hero's animations: idle, three attacks, hurt, death
   ui/Hud.js                  lives, score and level
   config/levels.js           difficulty table and endless scaling
@@ -151,8 +152,17 @@ rain with particles instead, and adds a faint, distant lightning strike every fe
 
 **The rocking longship.** The boat is one still image inside a Phaser Container
 whose origin is the spot on the deck where Thor stands. Every frame the container
-tilts, bobs and squashes slightly, with the same formula as the design's 12-frame
-loop. Thor's sprite is a child of that container, so he moves exactly like the deck.
+tilts, bobs and squashes slightly, with the formula of the design's 12-frame loop at
+1.5 times its amplitude. Thor's sprite is a child of that container, so he moves
+exactly like the deck.
+
+**The sea against the boat.** The boat sits in the water: the lower part of the hull's
+outer sides (and of the shields hanging there) is covered by water drawn with code.
+That water is a gradient that is see-through at the surface, dark below, and fades
+into the background sea, with foam where it meets the wood. The sea stays level while
+the boat rocks, so the side that dips sinks deeper. When the water reaches a gunwale,
+a wave washes over it: spray and foam pour onto the deck, and the water that came
+aboard sloshes toward the low side and slowly drains away.
 
 **Sprite pipeline.** Each design draws every frame of an animation as SVG.
 `scripts/export-sprites.mjs` opens them in headless Chrome, sets design options where

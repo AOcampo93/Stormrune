@@ -40,12 +40,16 @@ export const LANES = [
 ];
 
 /**
- * The outer top edge of the hull on each side, in the boat design's units
- * (taken from the "Bote idle" design): from the bow down to the stern.
+ * Lines of the hull on each side, in the boat design's units (taken from the
+ * "Bote idle" design), each running from the bow down past the stern:
+ *   gunwale    - the hull's outer top edge,
+ *   hullBottom - where the outer side of the hull ends (the design's waterline),
+ *   deckEdge   - where the inner wall meets the deck.
  */
-const GUNWALE = {
-  port: [[1288, 908], [-283.2, 2050]],
-  starboard: [[1312, 908], [2883.2, 2050]]
+export const HULL = {
+  gunwale: { port: [[1288, 908], [-283.2, 2050]], starboard: [[1312, 908], [2883.2, 2050]] },
+  hullBottom: { port: [[1278, 938], [-800, 2050]], starboard: [[1322, 938], [3400, 2050]] },
+  deckEdge: { port: [[1300, 940], [611.8, 2050]], starboard: [[1300, 940], [1988.2, 2050]] }
 };
 
 /**
@@ -54,7 +58,7 @@ const GUNWALE = {
  */
 export function gunwalePoint(side, y) {
   const scale = SPRITES.boat.scale;
-  const [[x0, y0], [x1, y1]] = GUNWALE[side];
+  const [[x0, y0], [x1, y1]] = HULL.gunwale[side];
   const designY = BOAT_ANCHOR[1] + (y - SHIP_ANCHOR_Y) / scale;
   const designX = x0 + ((designY - y0) / (y1 - y0)) * (x1 - x0);
   return { x: SHIP_X + (designX - BOAT_ANCHOR[0]) * scale, y };
@@ -69,6 +73,7 @@ export const DEPTH = {
   background: 0,
   enemies: 100, // + y, so up to ~800
   ship: 1100, // the longship with Thor on deck
+  shipWater: 1110, // the sea against the hull and the spray over it
   rain: 1200,
   effects: 1300,
   runePanels: 1400, // + a fraction of y, so nearer queues sit on top
