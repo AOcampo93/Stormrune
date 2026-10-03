@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, HORIZON_Y, BACKGROUND_SCALE, SAFE_MARGIN, DEPTH, LANES, gunwalePoint } from '../config/layout.js';
 import { SPRITES } from '../config/sprites.js';
-import { PALETTE, COLOR } from '../config/palette.js';
+import { PALETTE, COLOR, FONT } from '../config/palette.js';
 import { StrokeInput } from '../systems/StrokeInput.js';
 import { RuneRecognizer } from '../systems/RuneRecognizer.js';
 import { RUNE_IDS, RUNE_NAMES } from '../systems/runeTemplates.js';
@@ -263,16 +263,19 @@ export class GameScene extends Phaser.Scene {
 
   /** "LEVEL N" grows in, holds, then fades away and calls `onDone`. */
   showLevelBanner(level, onDone) {
-    const serif = 'Georgia, "Times New Roman", serif';
     const items = [
       this.add
         .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.36, `LEVEL ${level}`, {
-          fontFamily: serif,
+          fontFamily: FONT.display,
+          fontStyle: '900',
           fontSize: '96px',
-          color: PALETTE.accent,
+          color: PALETTE.frost,
           stroke: PALETTE.silhouette,
-          strokeThickness: 10
+          strokeThickness: 10,
+          // Room for the glow, which would otherwise be cut off at the text's edges.
+          padding: { x: 36, y: 36 }
         })
+        .setShadow(0, 0, PALETTE.frostGlow, 30, true, true)
         .setOrigin(0.5)
     ];
 
@@ -281,8 +284,9 @@ export class GameScene extends Phaser.Scene {
       items.push(
         this.add
           .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.36 + 80, 'Draw the glowing rune above a draugr to strike it', {
-            fontFamily: serif,
-            fontSize: '30px',
+            fontFamily: FONT.text,
+            fontStyle: '500',
+            fontSize: '32px',
             color: PALETTE.white,
             stroke: PALETTE.silhouette,
             strokeThickness: 6
@@ -417,7 +421,8 @@ export class GameScene extends Phaser.Scene {
     // A "+100" that floats up from the kill and fades.
     const popup = this.add
       .text(x, y - 20, `+${points}`, {
-        fontFamily: 'Georgia, "Times New Roman", serif',
+        fontFamily: FONT.display,
+        fontStyle: '700',
         fontSize: '28px',
         color: PALETTE.accent
       })

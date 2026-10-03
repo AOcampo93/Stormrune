@@ -1,11 +1,15 @@
-import { PALETTE, COLOR } from '../config/palette.js';
+import { PALETTE, FONT } from '../config/palette.js';
 import { GAME_WIDTH, SAFE_MARGIN, DEPTH } from '../config/layout.js';
 
 /** Horizontal distance between life icons. */
-const LIFE_SPACING = 44;
+const LIFE_SPACING = 46;
+
+/** Room around the level sign for its glow, in px. */
+const GLOW_PADDING = 18;
 
 const TEXT_STYLE = {
-  fontFamily: 'Georgia, "Times New Roman", serif',
+  fontFamily: FONT.display,
+  fontStyle: '700',
   color: PALETTE.white,
   stroke: PALETTE.silhouette,
   strokeThickness: 6
@@ -13,9 +17,9 @@ const TEXT_STYLE = {
 
 /**
  * The heads-up display, drawn entirely with code and simple shapes:
- *   top-left   - one hammer per life (filled = left, dimmed outline = lost)
+ *   top-left   - one hammer per life (glowing = left, dim = lost)
  *   top-center - score
- *   top-right  - level number
+ *   top-right  - level number, in the menu screens' glowing blue
  * Everything stays SAFE_MARGIN px away from the screen edges, clear of the
  * notches and rounded corners of phones held in landscape.
  */
@@ -27,11 +31,9 @@ export class Hud {
   constructor(scene, { lives, score, level }) {
     this.scene = scene;
 
+    // The hammer textures are painted in BootScene (createHammerTextures).
     this.lifeIcons = Array.from({ length: lives }, (_, i) =>
-      scene.add
-        .graphics()
-        .setPosition(SAFE_MARGIN + 16 + i * LIFE_SPACING, SAFE_MARGIN + 20)
-        .setDepth(DEPTH.hud)
+      scene.add.image(SAFE_MARGIN + 16 + i * LIFE_SPACING, SAFE_MARGIN + 20, 'hammer').setDepth(DEPTH.hud)
     );
 
     this.scoreText = scene.add
@@ -39,8 +41,16 @@ export class Hud {
       .setOrigin(0.5, 0)
       .setDepth(DEPTH.hud);
 
+    // The padding leaves room for the glow (it would be cut off at the
+    // text's edges), so the text is placed that much further out.
     this.levelText = scene.add
-      .text(GAME_WIDTH - SAFE_MARGIN, SAFE_MARGIN + 4, '', { ...TEXT_STYLE, fontSize: '28px', color: PALETTE.accent })
+      .text(GAME_WIDTH - SAFE_MARGIN + GLOW_PADDING, SAFE_MARGIN + 4 - GLOW_PADDING, '', {
+        ...TEXT_STYLE,
+        fontSize: '28px',
+        color: PALETTE.frost,
+        padding: { x: GLOW_PADDING, y: GLOW_PADDING }
+      })
+      .setShadow(0, 0, PALETTE.frostGlow, 14, true, true)
       .setOrigin(1, 0)
       .setDepth(DEPTH.hud);
 
@@ -50,7 +60,7 @@ export class Hud {
   }
 
   setLives(lives) {
-    this.lifeIcons.forEach((icon, index) => drawHammer(icon, index < lives));
+    this.lifeIcons.forEach((icon, index) => icon.setTexture(index < lives ? 'hammer' : 'hammer-lost'));
   }
 
   setScore(score) {
@@ -64,26 +74,5 @@ export class Hud {
 
   setLevel(level) {
     this.levelText.setText(`LEVEL ${level}`);
-  }
-}
-
-/**
- * A simple war hammer centered on (0, 0), about 36 px tall: a wide head
- * on a short handle. A lost life is drawn as a faint outline instead.
- */
-function drawHammer(g, filled) {
-  g.clear();
-
-  if (filled) {
-    g.fillStyle(COLOR.accent, 1);
-    g.fillRoundedRect(-15, -18, 30, 13, 3); // head
-    g.fillRect(-3, -6, 6, 20); // handle
-    g.fillRoundedRect(-5, 13, 10, 5, 2); // pommel
-    g.lineStyle(2, COLOR.silhouette, 0.9);
-    g.strokeRoundedRect(-15, -18, 30, 13, 3);
-  } else {
-    g.lineStyle(2, COLOR.white, 0.3);
-    g.strokeRoundedRect(-15, -18, 30, 13, 3);
-    g.strokeRect(-3, -5, 6, 18);
   }
 }

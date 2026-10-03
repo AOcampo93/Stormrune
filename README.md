@@ -206,7 +206,8 @@ the canvas, so it lines up with the game at any window size, while the canvas dr
 the artwork behind it and the rain. The runes on the How to Play screen are drawn
 from the same templates the recognizer uses, so they look exactly like the runes the
 player has to draw. Buttons also answer to the keyboard: Enter begins or plays again,
-and Escape leaves About or Game Over.
+and Escape leaves About or Game Over. The HUD shares the screens' look: Cinzel type,
+and the lives and level signs in their glowing blue.
 
 **Sprite pipeline.** Each design draws every frame of an animation as SVG.
 `scripts/export-sprites.mjs` opens them in headless Chrome, sets design options where

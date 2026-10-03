@@ -7,8 +7,8 @@ import { GameOverScene } from './scenes/GameOverScene.js';
 import { GAME_WIDTH, GAME_HEIGHT } from './config/layout.js';
 import { PALETTE } from './config/palette.js';
 
-// The typefaces of the menu screens, bundled with the game (SIL Open Font
-// License), and the screens' own styles.
+// The typefaces of the menu screens and the HUD, bundled with the game
+// (SIL Open Font License), and the screens' own styles.
 import '@fontsource/cinzel/latin-400.css';
 import '@fontsource/cinzel/latin-700.css';
 import '@fontsource/cinzel/latin-900.css';

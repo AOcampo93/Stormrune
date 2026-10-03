@@ -7,8 +7,8 @@ import { loadSpriteSheets, sheetFrames } from '../systems/spriteSheets.js';
 const SCREEN_BACKDROPS = ['how-to-play', 'about', 'game-over'];
 
 /**
- * The web fonts the menu screens use (bundled in main.js). The game waits
- * for them so the first screen doesn't flash in a fallback font.
+ * The web fonts the screens and the HUD use (bundled in main.js). The game
+ * waits for them so the first screen doesn't flash in a fallback font.
  */
 const FONTS = [
   ['400 20px Cinzel'],
@@ -52,6 +52,7 @@ export class BootScene extends Phaser.Scene {
 
     this.createParticleTextures();
     this.createLensTextures();
+    this.createHammerTextures();
     this.createVignetteTexture();
 
     const fonts = Promise.all(FONTS.map(([font, text]) => document.fonts.load(font, text)));
@@ -140,6 +141,49 @@ export class BootScene extends Phaser.Scene {
       ctx.fill();
       ctx.restore();
     });
+  }
+
+  /**
+   * The HUD's lives, drawn like the hammers on the How to Play screen:
+   * 'hammer' is a life left, glowing blue, and 'hammer-lost' a dim grey one.
+   * The glow is a canvas shadow, so it is painted once instead of every frame.
+   */
+  createHammerTextures() {
+    const SIZE = 64; // texture side
+    const ICON = 0.7; // the design's 60-unit icon, scaled to fit with room for the glow
+    const hammers = {
+      hammer: { head: '#6fd8ee', cheeks: '#a9ecf8', handle: '#4a3426', alpha: 1, glow: 'rgba(95, 220, 245, 0.8)' },
+      'hammer-lost': { head: '#6a7d92', cheeks: '#8597ab', handle: '#4a5262', alpha: 0.5, glow: null }
+    };
+    for (const [key, look] of Object.entries(hammers)) {
+      const texture = this.textures.createCanvas(key, SIZE, SIZE);
+      const ctx = texture.context;
+      ctx.translate(SIZE / 2, SIZE / 2);
+      ctx.rotate(-40 * (Math.PI / 180));
+      ctx.scale(ICON, ICON);
+      ctx.translate(-30, -30);
+      ctx.globalAlpha = look.alpha;
+      if (look.glow) {
+        ctx.shadowColor = look.glow;
+        ctx.shadowBlur = 10;
+      }
+      // A rounded rectangle, traced by hand (older Safari lacks roundRect).
+      const block = (x, y, width, height, radius, color) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.arcTo(x + width, y, x + width, y + height, radius);
+        ctx.arcTo(x + width, y + height, x, y + height, radius);
+        ctx.arcTo(x, y + height, x, y, radius);
+        ctx.arcTo(x, y, x + width, y, radius);
+        ctx.fill();
+      };
+      block(27, 30, 6, 24, 2, look.handle);
+      block(12, 10, 36, 20, 3, look.head);
+      block(9, 8, 6, 24, 2, look.cheeks);
+      block(45, 8, 6, 24, 2, look.cheeks);
+      texture.refresh();
+    }
   }
 
   /**
