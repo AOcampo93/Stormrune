@@ -3,11 +3,31 @@ import { Thor } from '../entities/Thor.js';
 import { Draugr } from '../entities/Draugr.js';
 import { loadSpriteSheets, sheetFrames } from '../systems/spriteSheets.js';
 
+/** The menu screens' artwork, exported from their designs. */
+const SCREEN_BACKDROPS = ['how-to-play', 'about', 'game-over'];
+
+/**
+ * The web fonts the menu screens use (bundled in main.js). The game waits
+ * for them so the first screen doesn't flash in a fallback font.
+ */
+const FONTS = [
+  ['400 20px Cinzel'],
+  ['700 20px Cinzel'],
+  ['900 20px Cinzel'],
+  ['400 20px "Alegreya Sans"'],
+  ['500 20px "Alegreya Sans"'],
+  ['400 20px "Noto Sans Runic"', 'ᚠ']
+];
+
+/** Don't hold the game back longer than this if a font is slow to arrive. */
+const FONT_WAIT_MS = 3000;
+
 /**
  * BootScene loads the sprite sheets exported from the designs in art/designs
- * (the sea, the longship, Thor and the draugar), registers their animations
- * and builds the small textures that are cheaper to generate with code than
- * to ship as files. It then hands over to the game.
+ * (the sea, the longship, Thor and the draugar) and the menu screens'
+ * artwork, registers the animations and builds the small textures that are
+ * cheaper to generate with code than to ship as files. Once the fonts are
+ * ready it opens the How to Play screen.
  */
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -17,6 +37,9 @@ export class BootScene extends Phaser.Scene {
   preload() {
     // Relative paths inside, so the game also works from a sub-folder.
     loadSpriteSheets(this.load);
+    for (const key of SCREEN_BACKDROPS) {
+      this.load.image(`screen:${key}`, `assets/screens/${key}.webp`);
+    }
   }
 
   create() {
@@ -30,7 +53,12 @@ export class BootScene extends Phaser.Scene {
     this.createParticleTextures();
     this.createLensTextures();
     this.createVignetteTexture();
-    this.scene.start('GameScene');
+
+    const fonts = Promise.all(FONTS.map(([font, text]) => document.fonts.load(font, text)));
+    const timeout = new Promise((resolve) => setTimeout(resolve, FONT_WAIT_MS));
+    Promise.race([fonts, timeout])
+      .catch(() => {}) // a missing font only means a fallback typeface
+      .then(() => this.scene.start('HowToPlayScene'));
   }
 
   /**

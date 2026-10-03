@@ -1,6 +1,6 @@
 /*
  * export-sprites.mjs: turns the designs in art/designs into the sprite
- * sheets the game loads.
+ * sheets the game loads, and into the artwork of its menu screens.
  *
  * Run with `npm run export:sprites` after changing a design. It needs Google
  * Chrome installed and an internet connection (the design files load their
@@ -16,6 +16,10 @@
  *   4. packs them into WebP sheets no larger than 2048 px per side (one
  *      animation may need several sheets),
  *   5. records sizes, anchors and sheet names in src/config/sprites.js.
+ *
+ * The menu screen designs (How to Play, About, Game Over) are HTML pages
+ * at 1920x1080. The game writes its own text over them, so only their
+ * artwork is exported (see SCREENS below).
  */
 
 import { createServer } from 'node:http';
@@ -27,6 +31,7 @@ import { chromium } from 'playwright-core';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DESIGNS_DIR = join(ROOT, 'art/designs');
 const OUT_DIR = join(ROOT, 'public/assets/sprites');
+const SCREENS_DIR = join(ROOT, 'public/assets/screens');
 const MANIFEST = join(ROOT, 'src/config/sprites.js');
 
 /** Design units to game pixels for characters and the boat (Thor ~320 px tall). */
@@ -138,6 +143,28 @@ const SHEETS = [
     crop: false
   }
 ];
+
+/**
+ * The menu screens. Each design is saved as a backdrop: the whole screen at
+ * the game's 1280x720, with its text taken out. `pieces` are pictures from
+ * the "How to Play" cards (by card, left to right), saved on their own and
+ * without what the game draws differently: the draugr without its rune
+ * panel, Thor without the charge bar (this game has no charge).
+ */
+const SCREENS = [
+  {
+    key: 'how-to-play',
+    design: 'Instrucciones.dc.html',
+    pieces: [
+      { key: 'card-draugr', card: 0 },
+      { key: 'card-thor', card: 2 }
+    ]
+  },
+  { key: 'about', design: 'About.dc.html' },
+  { key: 'game-over', design: 'Game Over.dc.html' }
+];
+const SCREEN_SIZE = { width: 1920, height: 1080 };
+const BACKDROP_SIZE = { width: 1280, height: 720 };
 
 // --- A tiny static server, so the designs can load their support.js ---------
 
@@ -313,6 +340,58 @@ for (const sheet of SHEETS) {
     originY: result.originY,
     parts
   };
+}
+
+// --- Menu screens ------------------------------------------------------------
+
+await mkdir(SCREENS_DIR, { recursive: true });
+await page.setViewportSize(SCREEN_SIZE);
+
+/** Re-encodes a PNG screenshot as WebP, resized if `size` is given. */
+const toWebp = (png, size) =>
+  page.evaluate(
+    async ({ src, size, quality }) => {
+      const image = new Image();
+      image.src = src;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = size?.width ?? image.width;
+      canvas.height = size?.height ?? image.height;
+      canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/webp', quality);
+    },
+    { src: 'data:image/png;base64,' + png.toString('base64'), size, quality: WEBP_QUALITY }
+  );
+
+const saveWebp = async (key, dataUrl) => {
+  const bytes = Buffer.from(dataUrl.split(',')[1], 'base64');
+  await writeFile(join(SCREENS_DIR, `${key}.webp`), bytes);
+  console.log(`${key.padEnd(15)} -> assets/screens/${key}.webp, ${Math.round(bytes.length / 1024)} KB`);
+};
+
+for (const screen of SCREENS) {
+  await page.goto(baseUrl + encodeURIComponent(screen.design));
+  const stage = page.locator('[data-screen-label]');
+  await stage.waitFor();
+  await page.waitForLoadState('networkidle');
+
+  // A card's picture is the first thing at its top; everything after it
+  // (rune panel, charge bar) is hidden.
+  for (const piece of screen.pieces ?? []) {
+    await page.evaluate((card) => {
+      const tops = [...document.querySelectorAll('[data-screen-label] div')].filter((div) => div.style.height === '262px');
+      tops.forEach((top) => top.removeAttribute('data-export'));
+      tops[card].setAttribute('data-export', '');
+      [...tops[card].children].slice(1).forEach((child) => (child.style.visibility = 'hidden'));
+    }, piece.card);
+    await saveWebp(piece.key, await toWebp(await page.locator('[data-export]').screenshot()));
+  }
+
+  // The backdrop: the stage without its text, which is its last layer.
+  await page.evaluate(() => {
+    document.querySelector('[data-screen-label]').lastElementChild.style.visibility = 'hidden';
+  });
+  await saveWebp(screen.key, await toWebp(await stage.screenshot(), BACKDROP_SIZE));
 }
 
 await browser.close();

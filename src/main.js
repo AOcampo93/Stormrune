@@ -1,9 +1,21 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene.js';
+import { HowToPlayScene } from './scenes/HowToPlayScene.js';
+import { AboutScene } from './scenes/AboutScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { GameOverScene } from './scenes/GameOverScene.js';
 import { GAME_WIDTH, GAME_HEIGHT } from './config/layout.js';
 import { PALETTE } from './config/palette.js';
+
+// The typefaces of the menu screens, bundled with the game (SIL Open Font
+// License), and the screens' own styles.
+import '@fontsource/cinzel/latin-400.css';
+import '@fontsource/cinzel/latin-700.css';
+import '@fontsource/cinzel/latin-900.css';
+import '@fontsource/alegreya-sans/latin-400.css';
+import '@fontsource/alegreya-sans/latin-500.css';
+import '@fontsource/noto-sans-runic/runic-400.css';
+import './ui/screens.css';
 
 // Adding "?debug" to the URL turns on developer aids: an on-screen readout of
 // what the rune recognizer saw, and a read-only state snapshot that automated
@@ -31,7 +43,10 @@ const config = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
-  scene: [BootScene, GameScene, GameOverScene]
+  // The menu screens are HTML over the canvas; Phaser keeps that layer the
+  // same size and place as the canvas.
+  dom: { createContainer: true },
+  scene: [BootScene, HowToPlayScene, AboutScene, GameScene, GameOverScene]
 };
 
 const game = new Phaser.Game(config);

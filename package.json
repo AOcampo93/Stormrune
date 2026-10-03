@@ -15,6 +15,9 @@
     "export:sprites": "node scripts/export-sprites.mjs"
   },
   "dependencies": {
+    "@fontsource/alegreya-sans": "^5.3.0",
+    "@fontsource/cinzel": "^5.3.0",
+    "@fontsource/noto-sans-runic": "^5.3.0",
     "phaser": "^4.2.1"
   },
   "devDependencies": {

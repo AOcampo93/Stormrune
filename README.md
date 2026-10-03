@@ -18,6 +18,11 @@ The game runs in any modern browser, on desktop and on phones in landscape.
 
 ## How to play
 
+The game opens on a **How to Play** screen with the saga, the rules and the three
+runes. **Begin** (or Enter) starts it, and **About** tells how it was made. After a
+game, **Play Again** (Enter) starts another and **How to Play** (Escape) goes back to
+the rules.
+
 Draw a rune anywhere on the screen in one stroke:
 
 | Rune   | Shape | How to draw it                       |
@@ -51,7 +56,7 @@ Then open the address Vite prints (usually http://localhost:5173).
 | `npm run build`            | Production build into `dist/`                                |
 | `npm run preview`          | Serves the production build from `dist/`                     |
 | `npm run check:recognizer` | Accuracy test for the rune recognizer (runs in Node, no browser) |
-| `npm run export:sprites`   | Rebuilds all the sprite sheets (sea, longship, Thor, draugar) from the designs in `art/designs` (needs Google Chrome and an internet connection) |
+| `npm run export:sprites`   | Rebuilds all the sprite sheets (sea, longship, Thor, draugar) and the menu screens' artwork from the designs in `art/designs` (needs Google Chrome and an internet connection) |
 
 ### Play on your phone
 
@@ -82,13 +87,21 @@ All art and characters are original:
   detailed vector designs made for this project ([art/designs](art/designs)).
   `npm run export:sprites` renders their animation frames into the WebP sprite sheets in
   [public/assets/sprites](public/assets/sprites).
+- **The How to Play, About and Game Over screens** follow designs in the same folder.
+  Their artwork is exported to [public/assets/screens](public/assets/screens).
 - **Lightning, rain, sparks, runes, the stroke trail and the HUD** are drawn with code at runtime.
+- **Typefaces:** [Cinzel](https://fonts.google.com/specimen/Cinzel),
+  [Alegreya Sans](https://fonts.google.com/specimen/Alegreya+Sans) and
+  [Noto Sans Runic](https://fonts.google.com/noto/specimen/Noto+Sans+Runic), all under
+  the SIL Open Font License. They are bundled from [Fontsource](https://fontsource.org/),
+  so the game needs no font service.
 
 ## Development environment
 
 - **Phaser 4.2.1**: 2D game framework. Uses the WebGL renderer, with Canvas as a fallback.
 - **Vite 8**: development server and production bundler.
-- **JavaScript (ES modules)**: no TypeScript, and no runtime dependency other than Phaser.
+- **JavaScript (ES modules)**: no TypeScript. The only runtime dependencies are Phaser and
+  the three Fontsource font packages.
 - **Node.js and npm**: run the tooling.
 - **Visual Studio Code**: editor.
 - **Chrome DevTools**: device emulation for phone screens and orientation.
@@ -97,8 +110,10 @@ All art and characters are original:
 
 ```
 src/
-  main.js                    Phaser config: 1280x720 scaled with FIT, scene list
-  scenes/BootScene.js        loads the sprite sheets, registers the animations
+  main.js                    Phaser config: 1280x720 scaled with FIT, scene list, fonts
+  scenes/BootScene.js        loads sheets and screen art, registers animations, waits for fonts
+  scenes/HowToPlayScene.js   first screen: the saga, the rules and the three runes
+  scenes/AboutScene.js       who made the game, how, and its sources
   scenes/GameScene.js        orchestrates gameplay: levels, casting, damage
   scenes/GameOverScene.js    final score and restart
   systems/StrokeInput.js     pointer capture and the glowing trail
@@ -106,19 +121,23 @@ src/
   systems/runeTemplates.js   the three rune shapes
   systems/Lightning.js       procedural lightning bolts
   systems/spriteSheets.js    loads sheets; joins animations split over several sheets
+  systems/rain.js            the slanted rain, in the game and behind the menus
   entities/Draugr.js         enemy: wading walk, rune queue, death by lightning
   entities/Longship.js       the boat, in layers; rocks, carrying Thor with it
   entities/ShipWater.js      breaking waves, the pool on deck, splashes against the hull
   entities/CameraSpray.js    spray thrown up at the camera from the bottom corners
   entities/Thor.js           the hero's animations: idle, three attacks, hurt, death
   ui/Hud.js                  lives, score and level
+  ui/MenuScreen.js           a menu screen: design artwork, rain, HTML text and buttons
+  ui/runeArt.js              runes drawn as SVG for the screens, from the rune templates
+  ui/screens.css             the menu screens' layout and look, from their designs
   config/levels.js           difficulty table and endless scaling
-  config/palette.js          every color in one place
+  config/palette.js          every color and typeface in one place
   config/layout.js           screen geometry, boarding lanes and draw order
   config/sprites.js          sprite sheet sizes and anchors (generated)
 scripts/check-recognizer.js  recognizer accuracy test
 scripts/export-sprites.mjs   design files -> sprite sheets
-art/designs/                 sea, longship, Thor and draugr designs (animated SVG pages)
+art/designs/                 sea, longship, Thor, draugr and menu screen designs
 ```
 
 **Recognizing runes.** Each stroke goes through the $1 pipeline:
@@ -181,6 +200,14 @@ The spray stays under the rune panels and the HUD. Every cast that strikes shake
 screen briefly, less than a draugr boarding does. Players who ask their system for
 reduced motion get no shakes or flashes.
 
+**Menu screens.** How to Play, About and Game Over are HTML laid out on a 1920×1080
+stage, like their designs. Phaser's DOM layer keeps that HTML scaled and placed over
+the canvas, so it lines up with the game at any window size, while the canvas draws
+the artwork behind it and the rain. The runes on the How to Play screen are drawn
+from the same templates the recognizer uses, so they look exactly like the runes the
+player has to draw. Buttons also answer to the keyboard: Enter begins or plays again,
+and Escape leaves About or Game Over.
+
 **Sprite pipeline.** Each design draws every frame of an animation as SVG.
 `scripts/export-sprites.mjs` opens them in headless Chrome, sets design options where
 needed, and rasterizes the frames the game uses. It can keep only part of a design (by
@@ -188,7 +215,8 @@ CSS selector, or inside an outline), which is how the longship is split into lay
 It then crops the frames to a shared box, so an anchor (Thor's feet, a draugr's
 waterline) stays put, and packs them into sheets of at most 2048 px, splitting long
 animations over several sheets. The frame sizes and anchors go to
-`src/config/sprites.js`.
+`src/config/sprites.js`. For the menu screens it renders each design at 1920×1080
+without its text, as the backdrop, and saves two of the card pictures on their own.
 
 **One texture per draw call.** Phaser 4 normally batches sprites that use different
 textures and picks the right one in the shader with an exact float comparison. On

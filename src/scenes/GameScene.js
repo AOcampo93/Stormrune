@@ -14,6 +14,7 @@ import { Thor } from '../entities/Thor.js';
 import { Hud } from '../ui/Hud.js';
 import { getLevelConfig } from '../config/levels.js';
 import { firstTexture } from '../systems/spriteSheets.js';
+import { addRain } from '../systems/rain.js';
 
 /**
  * Random spread (px) around a lane's start on the horizon and its boarding
@@ -155,21 +156,7 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0)
       .setDepth(DEPTH.background);
 
-    // Slanted rain: streaks spawn above the screen and are tilted to match
-    // their sideways drift.
-    this.add
-      .particles(0, -30, 'raindrop', {
-        x: { min: -100, max: GAME_WIDTH + 250 },
-        speedX: { min: -260, max: -200 },
-        speedY: { min: 900, max: 1200 },
-        rotate: 12,
-        lifespan: 900,
-        frequency: 16,
-        quantity: 2,
-        scale: { min: 0.6, max: 1.1 },
-        alpha: { min: 0.12, max: 0.35 }
-      })
-      .setDepth(DEPTH.rain);
+    addRain(this);
   }
 
   /**

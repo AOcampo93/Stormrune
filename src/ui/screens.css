@@ -1,0 +1,604 @@
+/*
+ * The menu screens: How to Play, About and Game Over.
+ *
+ * Each one is HTML laid out on a 1920x1080 stage, exactly as in its design
+ * (art/designs), and Phaser scales the stage with the canvas (see
+ * MenuScreen.js). The artwork behind the text is drawn on the canvas, so the
+ * stage itself is transparent apart from its panels.
+ */
+
+.screen {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  font-family: 'Alegreya Sans', sans-serif;
+  color: #c9d8e4;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.screen *,
+.screen *::before,
+.screen *::after {
+  box-sizing: border-box;
+}
+
+.screen h1,
+.screen h2,
+.screen p {
+  margin: 0;
+}
+
+/* As in the designs: no lonely last words in paragraphs, balanced titles. */
+.screen p {
+  text-wrap: pretty;
+}
+
+/* --- Shared pieces --------------------------------------------------------- */
+
+/* The screen's name written in runes, above its title. */
+.runic {
+  font-family: 'Noto Sans Runic', sans-serif;
+  font-size: 26px;
+  letter-spacing: 0.5em;
+  color: #8fe0f0;
+  text-shadow: 0 0 12px rgba(95, 220, 245, 0.7);
+}
+
+.title {
+  font-family: 'Cinzel', serif;
+  font-size: 92px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: #f2f8fc;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.7);
+}
+
+/* Small capital headings inside panels. */
+.label {
+  font-family: 'Cinzel', serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: #8fe0f0;
+}
+
+.panel {
+  background: rgba(6, 12, 24, 0.7);
+  border: 1px solid rgba(143, 224, 240, 0.2);
+  border-radius: 8px;
+}
+
+.button {
+  cursor: pointer;
+  border-radius: 999px;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  color: #effcff;
+  transition: opacity 0.3s, background 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.button:focus {
+  outline: none;
+}
+
+.button:focus-visible {
+  outline: 3px solid #f2c14a;
+  outline-offset: 6px;
+}
+
+.button-primary {
+  padding: 20px 56px;
+  background: rgba(18, 60, 84, 0.55);
+  border: 2px solid #8fe0f0;
+  font-size: 30px;
+  letter-spacing: 0.16em;
+  box-shadow: 0 0 28px rgba(95, 220, 245, 0.45), inset 0 0 18px rgba(95, 220, 245, 0.25);
+}
+
+.button-primary:hover {
+  background: rgba(30, 96, 128, 0.75);
+  box-shadow: 0 0 40px rgba(95, 220, 245, 0.7), inset 0 0 22px rgba(95, 220, 245, 0.35);
+}
+
+.button-secondary {
+  padding: 18px 40px;
+  background: rgba(6, 12, 24, 0.6);
+  border: 1.5px solid rgba(143, 224, 240, 0.45);
+  font-size: 24px;
+  letter-spacing: 0.12em;
+  color: #cfe8f2;
+}
+
+.button-secondary:hover {
+  border-color: #8fe0f0;
+  color: #effcff;
+  background: rgba(18, 60, 84, 0.5);
+}
+
+/* Buttons wait a moment before they work (see MenuScreen's inputDelayMs). */
+.screen.is-waiting .button {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* --- How to Play ----------------------------------------------------------- */
+
+.how-to-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 48px 80px 40px;
+}
+
+.how-to-play-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+}
+
+.how-to-play-header .heading {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.saga {
+  max-width: 860px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 26px;
+  background: rgba(6, 12, 24, 0.62);
+  border-color: rgba(143, 224, 240, 0.18);
+}
+
+.saga p {
+  font-size: 23px;
+  line-height: 1.38;
+  color: #c9d8e4;
+}
+
+.saga em {
+  font-style: normal;
+  color: #eef5fa;
+}
+
+.cards {
+  display: flex;
+  gap: 28px;
+}
+
+.card {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(6, 12, 24, 0.78);
+  border-color: rgba(143, 224, 240, 0.22);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+/* The picture at the top of a card. */
+.card-art {
+  position: relative;
+  height: 262px;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 70%, rgba(63, 120, 180, 0.28), rgba(6, 12, 24, 0) 70%);
+  border-bottom: 1px solid rgba(143, 224, 240, 0.14);
+}
+
+.card-art img,
+.card-art > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 28px 24px;
+}
+
+.card-text h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  font-family: 'Cinzel', serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  color: #eef5fa;
+}
+
+.card-text .numeral {
+  font-size: 40px;
+  line-height: 1;
+  color: #8fe0f0;
+}
+
+.card-text p {
+  font-size: 24px;
+  line-height: 1.38;
+  color: #b9c9d8;
+}
+
+/* A draugr's rune queue, drawn like the panel above its head in the game. */
+.queue {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 14px;
+  padding: 12px 16px;
+  background: rgba(8, 16, 26, 0.94);
+  border: 2px solid rgba(0, 229, 255, 0.5);
+  border-radius: 12px;
+}
+
+.queue svg {
+  display: block;
+}
+
+/* Lives left, as in the "Guard the ship" card. */
+.hammers {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+}
+
+.hammers .row {
+  display: flex;
+  gap: 18px;
+  filter: drop-shadow(0 0 10px rgba(95, 220, 245, 0.6));
+}
+
+.hammers .caption {
+  font-family: 'Cinzel', serif;
+  font-size: 18px;
+  letter-spacing: 0.24em;
+  color: #a9b9cc;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  padding: 18px 32px;
+}
+
+.legend .label {
+  flex: 0 0 auto;
+  font-size: 18px;
+  letter-spacing: 0.24em;
+}
+
+.legend-runes {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+.legend-rune {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.legend-rune svg {
+  flex: 0 0 auto;
+  display: block;
+}
+
+.legend-rune .name {
+  font-family: 'Cinzel', serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #eef5fa;
+}
+
+.legend-rune .meaning {
+  margin-left: 10px;
+  font-size: 20px;
+  color: #9fb3c6;
+}
+
+.legend-rune .stroke {
+  font-size: 21px;
+  color: #c9d8e4;
+}
+
+.how-to-play-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.tip {
+  font-size: 22px;
+  color: #9fb3c6;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* --- About ----------------------------------------------------------------- */
+
+.about {
+  position: absolute;
+  left: 80px;
+  top: 56px;
+  bottom: 48px;
+  width: 1180px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.about .heading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.about .title {
+  font-size: 84px;
+}
+
+.about-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 26px;
+  align-items: stretch;
+}
+
+.about-card {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 32px 38px;
+  background: rgba(6, 12, 24, 0.74);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.about-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.about-block p {
+  font-size: 22px;
+  line-height: 1.4;
+  color: #c9d8e4;
+}
+
+.author {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.avatar {
+  flex: 0 0 auto;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 35% 30%, #1d4a66, #081626);
+  border: 2px solid rgba(143, 224, 240, 0.55);
+  box-shadow: 0 0 24px rgba(95, 220, 245, 0.35);
+  font-family: 'Cinzel', serif;
+  font-size: 38px;
+  font-weight: 900;
+  color: #effcff;
+}
+
+.author-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.author-name {
+  font-family: 'Cinzel', serif;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #f2f8fc;
+}
+
+.author-role {
+  font-size: 22px;
+  color: #f2c14a;
+}
+
+.author-contact {
+  font-size: 20px;
+  color: #8aa0bf;
+}
+
+.made-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.made-list li {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+}
+
+.made-list .bullet {
+  flex: 0 0 auto;
+  width: 28px;
+  font-family: 'Noto Sans Runic', sans-serif;
+  font-size: 26px;
+  color: #bff4ff;
+  text-shadow: 0 0 10px rgba(95, 220, 245, 0.7);
+}
+
+.made-list .what {
+  display: block;
+  font-family: 'Cinzel', serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #eef5fa;
+}
+
+.made-list .how {
+  display: block;
+  font-size: 20px;
+  line-height: 1.35;
+  color: #9fb3c6;
+}
+
+.about-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.about-footer .button-primary {
+  padding: 18px 44px;
+  font-size: 26px;
+  letter-spacing: 0.14em;
+}
+
+.credit {
+  font-size: 20px;
+  color: #7f93ab;
+}
+
+/* --- Game Over ------------------------------------------------------------- */
+
+.game-over {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+}
+
+.game-over .runic {
+  font-size: 28px;
+  letter-spacing: 0.6em;
+  color: #e07a6e;
+  text-shadow: 0 0 14px rgba(224, 64, 48, 0.7);
+}
+
+.game-over-title {
+  max-width: 1500px;
+  font-family: 'Cinzel', serif;
+  font-size: 96px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  line-height: 1.05;
+  color: #e8463c;
+  text-transform: uppercase;
+  text-shadow: 0 0 40px rgba(232, 70, 60, 0.35), 0 6px 30px rgba(0, 0, 0, 0.85);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  margin-top: 18px;
+}
+
+.divider .line {
+  width: 120px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(143, 224, 240, 0), rgba(143, 224, 240, 0.5));
+}
+
+.divider .line:last-child {
+  background: linear-gradient(90deg, rgba(143, 224, 240, 0.5), rgba(143, 224, 240, 0));
+}
+
+.divider .rune {
+  font-family: 'Noto Sans Runic', sans-serif;
+  font-size: 22px;
+  color: #8fe0f0;
+  opacity: 0.7;
+}
+
+.final-score {
+  display: flex;
+  align-items: baseline;
+  gap: 26px;
+}
+
+.final-score .score-label {
+  font-family: 'Cinzel', serif;
+  font-size: 56px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #f2f8fc;
+}
+
+.final-score .score-value {
+  font-family: 'Cinzel', serif;
+  font-size: 120px;
+  font-weight: 900;
+  line-height: 1;
+  color: #ffffff;
+  text-shadow: 0 0 30px rgba(143, 224, 240, 0.35);
+}
+
+.level-reached {
+  font-size: 40px;
+  font-weight: 500;
+  color: #f2c14a;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
+}
+
+.game-over .buttons {
+  margin-top: 34px;
+}
+
+.game-over .button-primary {
+  padding: 22px 64px;
+  font-size: 34px;
+}
+
+.game-over .button-secondary {
+  padding: 20px 44px;
+  font-size: 26px;
+}
