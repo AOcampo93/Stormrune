@@ -1,18 +1,21 @@
-# Stormrune
+# Overview
 
-Defend a Viking longship from the draugar by drawing Norse runes.
+**Stormrune**: defend a Viking longship from the draugar by drawing Norse runes.
 
 ![Stormrune: Thor raises his hammer and lightning strikes a draugr, with a giant looming in the storm](docs/screenshot.jpg)
 
-## Overview
+As a software engineer, I wanted to learn how a real game framework structures a
+game (scenes, input, rendering, animation and effects), and to implement a
+published gesture recognition algorithm myself instead of relying on a library.
+The result is a complete game that plays in any modern browser.
 
 Stormrune is a 2D browser game made with [Phaser 4](https://phaser.io/). Thor
 stands on the deck of a longship while undead warriors, the draugar, rise from a
 stormy sea and wade toward it. Each one carries a queue of runes above its head.
 Draw the matching rune with your mouse or finger and Thor calls down lightning,
-removing that rune. When a draugr's queue
-is empty it is destroyed. If a draugr reaches the ship you lose one of your three
-lives, and losing all three ends the game.
+removing that rune. When a draugr's queue is empty it is destroyed. If a draugr
+reaches the ship you lose one of your three lives, and losing all three ends the
+game.
 
 The game runs in any modern browser, on desktop and on phones in landscape.
 
@@ -38,6 +41,49 @@ Draw a rune anywhere on the screen in one stroke:
 - A stroke that isn't a rune just fizzles. Misreads never cost you a life.
 - Destroy enough draugar to clear a level. Each level spawns them more often, makes them walk faster and gives them longer rune queues. After level 5 the game is endless, getting about 10% harder per level.
 - Landscape only: on a phone held upright, the game pauses and asks you to rotate.
+
+## Purpose
+
+I wrote Stormrune to grow as a software engineer in three areas:
+
+- **Learn a real game framework.** Phaser 4 covers scenes, pointer and touch input,
+  Graphics drawing, tweens, timers, particles and the new filter system (used for the
+  glowing rune trail). It also supports responsive scaling for phones.
+- **Implement a published algorithm instead of pulling in a library.** Stroke
+  recognition is our own implementation of the $1 Unistroke Recognizer
+  ([src/systems/RuneRecognizer.js](src/systems/RuneRecognizer.js)).
+- **Build a real asset pipeline.** The art is designed as animated vector pages, and
+  one script turns them into sprite sheets and screen artwork, so changing a design
+  and running a single command updates the game.
+
+All art and characters are original:
+
+- **The stormy sea (with a giant in the mist), the longship, Thor and the draugar** are
+  detailed vector designs made for this project ([art/designs](art/designs)).
+  `npm run export:sprites` renders their animation frames into the WebP sprite sheets in
+  [public/assets/sprites](public/assets/sprites).
+- **The How to Play, About and Game Over screens** follow designs in the same folder.
+  Their artwork is exported to [public/assets/screens](public/assets/screens).
+- **Lightning, rain, sparks, runes, the stroke trail and the HUD** are drawn with code at runtime.
+- **Typefaces:** [Cinzel](https://fonts.google.com/specimen/Cinzel),
+  [Alegreya Sans](https://fonts.google.com/specimen/Alegreya+Sans) and
+  [Noto Sans Runic](https://fonts.google.com/noto/specimen/Noto+Sans+Runic), all under
+  the SIL Open Font License. They are bundled from [Fontsource](https://fontsource.org/),
+  so the game needs no font service.
+
+[Software Demo Video](https://youtu.be/REPLACE_WITH_VIDEO_ID)
+
+# Development Environment
+
+- **Phaser 4.2.1**: 2D game framework. Uses the WebGL renderer, with Canvas as a fallback.
+- **Vite 8**: development server and production bundler.
+- **JavaScript (ES modules)**: no TypeScript. The only runtime dependencies are Phaser and
+  the three Fontsource font packages.
+- **Node.js and npm**: run the tooling.
+- **Visual Studio Code**: editor.
+- **Chrome DevTools**: device emulation for phone screens and orientation.
+- **playwright-core** (development only): drives headless Google Chrome for the
+  `export:sprites` script.
 
 ## Running it locally
 
@@ -69,42 +115,6 @@ Then open the address Vite prints (usually http://localhost:5173).
 Add `?debug` to the URL, for example `http://localhost:5173/?debug`, to show what the
 recognizer read for each stroke and its score. It also exposes a read-only
 `window.__stormrune.state` snapshot for automated browser tests. Players never see it.
-
-## Purpose
-
-This project was built for the Game Framework module of BYU-Idaho's CSE 310. It had two goals:
-
-- **Learn a real game framework.** Phaser 4 covers scenes, pointer and touch input,
-  Graphics drawing, tweens, timers, particles and the new filter system (used for the
-  glowing rune trail). It also supports responsive scaling for phones.
-- **Implement a published algorithm instead of pulling in a library.** Stroke
-  recognition is our own implementation of the $1 Unistroke Recognizer
-  ([src/systems/RuneRecognizer.js](src/systems/RuneRecognizer.js)).
-
-All art and characters are original:
-
-- **The stormy sea (with a giant in the mist), the longship, Thor and the draugar** are
-  detailed vector designs made for this project ([art/designs](art/designs)).
-  `npm run export:sprites` renders their animation frames into the WebP sprite sheets in
-  [public/assets/sprites](public/assets/sprites).
-- **The How to Play, About and Game Over screens** follow designs in the same folder.
-  Their artwork is exported to [public/assets/screens](public/assets/screens).
-- **Lightning, rain, sparks, runes, the stroke trail and the HUD** are drawn with code at runtime.
-- **Typefaces:** [Cinzel](https://fonts.google.com/specimen/Cinzel),
-  [Alegreya Sans](https://fonts.google.com/specimen/Alegreya+Sans) and
-  [Noto Sans Runic](https://fonts.google.com/noto/specimen/Noto+Sans+Runic), all under
-  the SIL Open Font License. They are bundled from [Fontsource](https://fontsource.org/),
-  so the game needs no font service.
-
-## Development environment
-
-- **Phaser 4.2.1**: 2D game framework. Uses the WebGL renderer, with Canvas as a fallback.
-- **Vite 8**: development server and production bundler.
-- **JavaScript (ES modules)**: no TypeScript. The only runtime dependencies are Phaser and
-  the three Fontsource font packages.
-- **Node.js and npm**: run the tooling.
-- **Visual Studio Code**: editor.
-- **Chrome DevTools**: device emulation for phone screens and orientation.
 
 ## How it works
 
@@ -225,14 +235,14 @@ software renderers (and potentially low-precision mobile GPUs) that comparison c
 miss and leave holes in sprites. The game sets `render.maxTextures: 1`, which costs a
 few extra draw calls and avoids the problem.
 
-## Deploying later
+## Deploying
 
 The build uses relative asset URLs (`base: './'` in [vite.config.js](vite.config.js)).
 That means `dist/` works from any static host or sub-folder, for example a GitHub
 Pages project site, Netlify or itch.io. The hosting choice is still pending; a deploy
 script or workflow will be added once it is made.
 
-## Useful websites
+# Useful Websites
 
 - [Phaser 4 documentation](https://docs.phaser.io/)
 - [Phaser examples](https://phaser.io/examples)
@@ -247,11 +257,11 @@ script or workflow will be added once it is made.
   - [`matchMedia()`](https://developer.mozilla.org/en-US/docs/Web/API/Window/matchMedia)
   - [`prefers-reduced-motion`](https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion)
 
-## Future work
+# Future Work
 
 - Publish a playable demo on a static host and link it here and in the repository description.
 - Sound: thunder, rune chimes, an ambient storm, music.
-- A start menu, a pause menu and saved high scores.
+- A pause menu and saved high scores.
 - Bosses: a frost giant and Jörmungandr.
 - Multi-stroke runes, such as an X-shaped Gebo special attack. These would need a $N-style recognizer.
 - Turn the giant in the background into a boss fight.
