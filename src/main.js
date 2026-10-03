@@ -6,6 +6,7 @@ import { GameScene } from './scenes/GameScene.js';
 import { GameOverScene } from './scenes/GameOverScene.js';
 import { GAME_WIDTH, GAME_HEIGHT } from './config/layout.js';
 import { PALETTE } from './config/palette.js';
+import { releaseStaleTouches } from './systems/staleTouches.js';
 
 // The typefaces of the menu screens and the HUD, bundled with the game
 // (SIL Open Font License), and the screens' own styles.
@@ -46,10 +47,17 @@ const config = {
   // The menu screens are HTML over the canvas; Phaser keeps that layer the
   // same size and place as the canvas.
   dom: { createContainer: true },
+  input: {
+    // Track up to four fingers. Holding a phone in landscape, a thumb or
+    // palm often rests on the screen; with a single touch slot it would take
+    // that slot and the finger that draws would be ignored.
+    activePointers: 4
+  },
   scene: [BootScene, HowToPlayScene, AboutScene, GameScene, GameOverScene]
 };
 
 const game = new Phaser.Game(config);
+releaseStaleTouches(game);
 
 // The registry is shared by every scene, so they can all check the flag.
 game.registry.set('debug', DEBUG);
@@ -61,6 +69,8 @@ if (DEBUG) {
       const gameScene = game.scene.getScene('GameScene');
       return {
         activeScenes: game.scene.getScenes(true).map((scene) => scene.scene.key),
+        // Input slots: 0 is the mouse, the rest are fingers.
+        pointers: game.input.pointers.map((p) => ({ id: p.id, active: p.active, down: p.isDown })),
         // The scene object exists from boot, but it has no gameplay state
         // until it starts for the first time (after the assets load).
         ...(gameScene?.draugar ? gameScene.getDebugState() : {})

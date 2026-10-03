@@ -130,6 +130,7 @@ src/
   scenes/GameScene.js        orchestrates gameplay: levels, casting, damage
   scenes/GameOverScene.js    final score and restart
   systems/StrokeInput.js     pointer capture and the glowing trail
+  systems/staleTouches.js    frees touch slots held by fingers that are gone
   systems/RuneRecognizer.js  $1 Unistroke Recognizer
   systems/runeTemplates.js   the three rune shapes
   systems/Lightning.js       procedural lightning bolts
@@ -212,6 +213,13 @@ fall back. The stronger splashes leave drops on the lens that slide down and dry
 The spray stays under the rune panels and the HUD. Every cast that strikes shakes the
 screen briefly, less than a draugr boarding does. Players who ask their system for
 reduced motion get no shakes or flashes.
+
+**Touch on phones.** Holding a phone in landscape, a thumb or palm often rests on
+the screen. The game tracks up to four fingers. A finger that hasn't moved is treated
+as resting, so the finger that actually draws takes the stroke over. Phaser frees a
+finger's input slot when its touch ends. A touch whose end never arrives (it began on
+a menu that disappeared while the finger was down) would hold its slot forever, so
+before each new touch, slots held by fingers no longer on the screen are released.
 
 **Menu screens.** How to Play, About and Game Over are HTML laid out on a 1920×1080
 stage, like their designs. Phaser's DOM layer keeps that HTML scaled and placed over

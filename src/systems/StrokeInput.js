@@ -12,6 +12,13 @@ const MAX_POINTS = 150;
 const FADE_MS = 300;
 
 /**
+ * A finger that has drawn less than this (px) is resting rather than
+ * drawing, like a thumb on the edge of a phone held in landscape. Another
+ * finger that touches down takes the stroke over from it.
+ */
+const RESTING_PATH = 24;
+
+/**
  * StrokeInput turns pointer input (mouse or touch) into strokes: lists of
  * {x, y} points in game coordinates. While the player draws it renders a
  * glowing trail. When the pointer lifts, it hands the finished stroke to a
@@ -73,18 +80,24 @@ export class StrokeInput {
     }
   }
 
-  handleDown(pointer) {
-    if (!this.enabled) {
+  /**
+   * @param {Phaser.Input.Pointer} pointer
+   * @param {Phaser.GameObjects.GameObject[]} over Interactive objects under it (buttons).
+   */
+  handleDown(pointer, over) {
+    // A press on a button (such as the full-screen toggle) is not a stroke.
+    if (!this.enabled || over.length > 0) {
       return;
     }
 
     if (this.pointer) {
-      // Another finger is still drawing: ignore this one.
-      if (this.pointer !== pointer && this.pointer.isDown) {
+      // Another finger is really drawing: ignore this one.
+      if (this.pointer !== pointer && this.pointer.isDown && this.pathLength() >= RESTING_PATH) {
         return;
       }
-      // Otherwise we never heard the previous stroke end (for example the
-      // touch was cancelled by the system). Throw it away and start over.
+      // Otherwise the first finger is only resting on the screen, or we
+      // never heard its stroke end (the system cancelled the touch). Throw
+      // that stroke away and start over with this finger.
       this.cancel();
     }
 
@@ -124,6 +137,15 @@ export class StrokeInput {
     this.points = [];
     this.fadeOut(stroke);
     this.onStroke(stroke);
+  }
+
+  /** How far the stroke in progress has traveled so far (px). */
+  pathLength() {
+    let length = 0;
+    for (let i = 1; i < this.points.length; i++) {
+      length += Math.hypot(this.points[i].x - this.points[i - 1].x, this.points[i].y - this.points[i - 1].y);
+    }
+    return length;
   }
 
   /** Abandons the stroke in progress (if any) without recognizing it. */
