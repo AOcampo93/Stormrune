@@ -359,8 +359,8 @@
   color: #c9d8e4;
 }
 
-/* The settings, on top of the whole How to Play screen when open. */
-.settings {
+/* Panels (settings, full-screen help) on top of the whole screen when open. */
+.overlay {
   position: absolute;
   inset: 0;
   display: none;
@@ -369,11 +369,11 @@
   background: rgba(3, 6, 12, 0.72);
 }
 
-.settings.is-open {
+.overlay.is-open {
   display: flex;
 }
 
-.settings-panel {
+.overlay-panel {
   width: 900px;
   display: flex;
   flex-direction: column;
@@ -384,7 +384,7 @@
   box-shadow: 0 20px 80px rgba(0, 0, 0, 0.6);
 }
 
-.settings-title {
+.overlay-title {
   font-family: 'Cinzel', serif;
   font-size: 48px;
   font-weight: 900;
@@ -400,18 +400,23 @@
   color: #8fe0f0;
 }
 
-.settings-panel p:not(.settings-version) {
+.overlay-panel p:not(.settings-version) {
   font-size: 26px;
   line-height: 1.4;
   color: #c9d8e4;
 }
 
-.settings-panel .buttons {
+.overlay-panel strong {
+  font-weight: 500;
+  color: #eef5fa;
+}
+
+.overlay-panel .buttons {
   justify-content: flex-end;
   margin-top: 12px;
 }
 
-.settings .button:disabled {
+.overlay .button:disabled {
   opacity: 0.6;
   cursor: progress;
 }

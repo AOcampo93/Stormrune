@@ -43,12 +43,14 @@ Draw a rune anywhere on the screen in one stroke:
 - Size, position and direction don't matter. A Tiwaz drawn right-to-left still counts.
 - A stroke that isn't a rune just fizzles. Misreads never cost you a life.
 - Destroy enough draugar to clear a level. Each level spawns them more often, makes them walk faster and gives them longer rune queues. After level 5 the game is endless, getting about 10% harder per level.
+- **MENU** (top left) or Escape leaves the game for the menu without ending it: the
+  game waits, frozen, until you choose **Resume**, or **New Game** to start over.
 - Landscape only: on a phone held upright, the game pauses and asks you to rotate.
 - Full screen: on a phone, **Begin** switches to full screen where the browser allows
   it (Android). A button on the How to Play screen and at the top right of the game,
-  or the F key, turns it on and off. Safari
-  on iPhone can't put a page in full screen: tap **Share**, then **Add to Home Screen**,
-  and the game opens from there without the browser's bars.
+  or the F key, turns it on and off. Safari on iPhone can't put a page in full
+  screen, so there the button explains the way: tap **Share**, then **Add to Home
+  Screen**, and the game opens from there without the browser's bars.
 - Settings: the gear on the How to Play screen shows which version is running (its
   commit and build date) and has **Get the latest version**. That clears any service
   worker and cached files, refreshes the game's files and reloads, for a phone that

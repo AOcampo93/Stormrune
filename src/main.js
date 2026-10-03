@@ -76,6 +76,8 @@ if (DEBUG) {
       const gameScene = game.scene.getScene('GameScene');
       return {
         activeScenes: game.scene.getScenes(true).map((scene) => scene.scene.key),
+        // A game left for the menu sleeps until it is resumed.
+        gameSleeping: game.scene.isSleeping('GameScene'),
         // Input slots: 0 is the mouse, the rest are fingers.
         pointers: game.input.pointers.map((p) => ({ id: p.id, active: p.active, down: p.isDown })),
         // The scene object exists from boot, but it has no gameplay state

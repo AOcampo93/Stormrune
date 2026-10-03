@@ -13,6 +13,9 @@ const root = document.documentElement;
 const request = root.requestFullscreen ?? root.webkitRequestFullscreen;
 const exit = document.exitFullscreen ?? document.webkitExitFullscreen;
 
+/** iPhone, iPod or iPad (iPads also call themselves Macs, but with touch). */
+const IOS = /iPhone|iPod|iPad/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 export const fullscreen = {
   /** Whether this browser can put the page in full screen. */
   get available() {
@@ -21,6 +24,19 @@ export const fullscreen = {
 
   get active() {
     return Boolean(document.fullscreenElement ?? document.webkitFullscreenElement);
+  },
+
+  /** Opened from the home screen: the game already has the whole screen. */
+  get installed() {
+    return navigator.standalone === true || window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
+  },
+
+  /**
+   * Whether to show a full-screen button: wherever the browser can do it,
+   * and on iPhone, where the button explains Add to Home Screen instead.
+   */
+  get offered() {
+    return !this.installed && (this.available || IOS);
   },
 
   /** Enters full screen and, where allowed (Android), locks landscape. */

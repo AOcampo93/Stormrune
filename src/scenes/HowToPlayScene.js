@@ -27,49 +27,83 @@ const TIP = IPHONE_IN_BROWSER
   : 'Tip: size and direction don’t matter, and a stroke that isn’t a rune never costs a hammer.';
 
 /**
- * The first screen: the saga, the rules in four steps, and the three runes
- * with how to trace each one. "Begin" starts the game. The gear opens the
- * settings: the version running, and a way to load the latest one.
+ * The main menu: the saga, the rules in four steps, and the three runes
+ * with how to trace each one. "Begin" starts the game. When a game was left
+ * for the menu (it sleeps behind it), "Resume" goes back to it and "New
+ * Game" starts over. The gear opens the settings: the version running, and
+ * a way to load the latest one.
  */
 export class HowToPlayScene extends Phaser.Scene {
   constructor() {
     super('HowToPlayScene');
   }
 
-  create() {
-    let settings = null; // the settings panel, found once the screen exists
-    const settingsOpen = () => settings.classList.contains('is-open');
+  /** @param {{show?: string}} [data] A panel to open right away, e.g. 'fullscreen-help'. */
+  init(data) {
+    this.panelToOpen = data?.show;
+  }
 
-    const screen = new MenuScreen(this, {
+  create() {
+    const gameInProgress = this.scene.isSleeping('GameScene');
+
+    let screen = null;
+    const panel = (name) => screen.node.querySelector(`.overlay[data-panel="${name}"]`);
+    const openPanels = () => [...screen.node.querySelectorAll('.overlay.is-open')];
+    const closePanels = () => openPanels().forEach((open) => open.classList.remove('is-open'));
+
+    screen = new MenuScreen(this, {
       backdrop: 'screen:how-to-play',
-      html: howToPlayHtml(),
+      html: howToPlayHtml(gameInProgress),
       actions: {
         begin: () => {
           enterFullscreenOnTouch();
           this.scene.start('GameScene');
         },
+        resume: () => {
+          enterFullscreenOnTouch();
+          this.scene.wake('GameScene');
+          this.scene.stop();
+        },
+        // The sleeping game is shut down first, so nothing of it lingers.
+        'new-game': () => {
+          enterFullscreenOnTouch();
+          this.scene.stop('GameScene');
+          this.scene.start('GameScene');
+        },
         about: () => this.scene.start('AboutScene')
       },
       controls: {
-        fullscreen: () => fullscreen.toggle(),
-        settings: () => settings.classList.add('is-open'),
-        'close-settings': () => settings.classList.remove('is-open'),
+        // Where the browser can't go full screen (iPhone), explain the home screen.
+        fullscreen: () => (fullscreen.available ? fullscreen.toggle() : panel('fullscreen-help').classList.add('is-open')),
+        settings: () => panel('settings').classList.add('is-open'),
+        'close-panel': closePanels,
+        // Escape closes an open panel; with none open, it goes back to the game.
+        escape: () => {
+          if (openPanels().length > 0) {
+            closePanels();
+          } else if (gameInProgress) {
+            screen.run('resume');
+          }
+        },
         update: () => {
-          const button = settings.querySelector('[data-action="update"]');
+          const button = panel('settings').querySelector('[data-action="update"]');
           button.disabled = true;
           button.textContent = 'Updating…';
           loadLatestVersion();
         }
       },
-      keys: { ENTER: 'begin', SPACE: 'begin', F: 'fullscreen', ESC: 'close-settings' },
-      // With the settings open, Begin and About wait until they are closed.
-      holdActions: () => settingsOpen()
+      keys: { ENTER: gameInProgress ? 'resume' : 'begin', SPACE: gameInProgress ? 'resume' : 'begin', F: 'fullscreen', ESC: 'escape' },
+      // With a panel open, the buttons that leave the screen wait until it closes.
+      holdActions: () => openPanels().length > 0
     });
-    settings = screen.node.querySelector('.settings');
+
+    if (this.panelToOpen) {
+      panel(this.panelToOpen)?.classList.add('is-open');
+    }
 
     // The full-screen button shows whether the page is in full screen now.
     const button = screen.node.querySelector('[data-action="fullscreen"]');
-    if (button) {
+    if (button && fullscreen.available) {
       const show = () => {
         button.classList.toggle('is-active', fullscreen.active);
         button.setAttribute('aria-label', fullscreen.active ? 'Leave full screen' : 'Full screen');
@@ -80,7 +114,8 @@ export class HowToPlayScene extends Phaser.Scene {
   }
 }
 
-function howToPlayHtml() {
+/** @param {boolean} gameInProgress Whether a game is waiting behind the menu. */
+function howToPlayHtml(gameInProgress) {
   const legend = RUNE_IDS.map(
     (id) => `
       <div class="legend-rune">
@@ -159,23 +194,41 @@ function howToPlayHtml() {
         <span class="tip">${TIP}</span>
         <div class="buttons">
           <button class="button button-icon" data-action="settings" aria-label="Settings">${gearIconSvg()}</button>
-          ${fullscreen.available ? `<button class="button button-icon" data-action="fullscreen">${fullscreenIconSvg()}</button>` : ''}
+          ${fullscreen.offered ? `<button class="button button-icon" data-action="fullscreen" aria-label="Full screen">${fullscreenIconSvg()}</button>` : ''}
           <button class="button button-secondary" data-action="about">About</button>
-          <button class="button button-primary" data-action="begin">Begin</button>
+          ${
+            gameInProgress
+              ? `<button class="button button-secondary" data-action="new-game">New Game</button>
+                 <button class="button button-primary" data-action="resume">Resume</button>`
+              : `<button class="button button-primary" data-action="begin">Begin</button>`
+          }
         </div>
       </footer>
     </div>
 
-    <div class="settings">
-      <section class="panel settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="overlay" data-panel="settings">
+      <section class="panel overlay-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <span class="label">SETTINGS</span>
-        <h2 id="settings-title" class="settings-title">Game version</h2>
+        <h2 id="settings-title" class="overlay-title">Game version</h2>
         <p class="settings-version">${__APP_VERSION__}</p>
         <p>Seeing an old version, or something not working? This clears the game’s saved
         files and loads the latest version.</p>
         <div class="buttons">
-          <button class="button button-secondary" data-action="close-settings">Close</button>
+          <button class="button button-secondary" data-action="close-panel">Close</button>
           <button class="button button-primary" data-action="update">Get the latest version</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="overlay" data-panel="fullscreen-help">
+      <section class="panel overlay-panel" role="dialog" aria-modal="true" aria-labelledby="fullscreen-help-title">
+        <span class="label">FULL SCREEN</span>
+        <h2 id="fullscreen-help-title" class="overlay-title">Full screen on iPhone</h2>
+        <p>Safari on iPhone can’t show a web page full screen, but the game can live on your
+        home screen: tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.
+        Opened from there, Stormrune fills the whole screen.</p>
+        <div class="buttons">
+          <button class="button button-primary" data-action="close-panel">Got it</button>
         </div>
       </section>
     </div>`;

@@ -13,6 +13,9 @@ const GLOW_PADDING = 18;
 const FULLSCREEN_ICON = 30;
 const FULLSCREEN_HIT = 56;
 
+/** The MENU button in the top-left corner. */
+const MENU_BUTTON = { width: 116, height: 44 };
+
 const TEXT_STYLE = {
   fontFamily: FONT.display,
   fontStyle: '700',
@@ -23,10 +26,11 @@ const TEXT_STYLE = {
 
 /**
  * The heads-up display, drawn entirely with code and simple shapes:
- *   top-left   - one hammer per life (glowing = left, dim = lost)
+ *   top-left   - a MENU button, then one hammer per life (glowing = left,
+ *                dim = lost)
  *   top-center - score
  *   top-right  - level number, in the menu screens' glowing blue, and a
- *                full-screen button where the browser supports it
+ *                full-screen button (on iPhone it explains Add to Home Screen)
  * Everything stays SAFE_MARGIN px away from the screen edges, clear of the
  * notches and rounded corners of phones held in landscape.
  */
@@ -34,13 +38,18 @@ export class Hud {
   /**
    * @param {Phaser.Scene} scene
    * @param {{lives: number, score: number, level: number}} initial
+   * @param {{onMenu: () => void, onFullscreenHelp: () => void}} buttons What the MENU
+   *   button does, and the full-screen button where the browser can't go full screen.
    */
-  constructor(scene, { lives, score, level }) {
+  constructor(scene, { lives, score, level }, { onMenu, onFullscreenHelp }) {
     this.scene = scene;
 
+    this.createMenuButton(onMenu);
+
     // The hammer textures are painted in BootScene (createHammerTextures).
+    const firstLifeX = SAFE_MARGIN + MENU_BUTTON.width + 38;
     this.lifeIcons = Array.from({ length: lives }, (_, i) =>
-      scene.add.image(SAFE_MARGIN + 16 + i * LIFE_SPACING, SAFE_MARGIN + 20, 'hammer').setDepth(DEPTH.hud)
+      scene.add.image(firstLifeX + i * LIFE_SPACING, SAFE_MARGIN + 20, 'hammer').setDepth(DEPTH.hud)
     );
 
     this.scoreText = scene.add
@@ -50,8 +59,8 @@ export class Hud {
 
     // The level sign sits left of the full-screen button, if there is one.
     let levelRight = GAME_WIDTH - SAFE_MARGIN;
-    if (fullscreen.available) {
-      this.createFullscreenButton(GAME_WIDTH - SAFE_MARGIN - FULLSCREEN_ICON / 2, SAFE_MARGIN + 20);
+    if (fullscreen.offered) {
+      this.createFullscreenButton(GAME_WIDTH - SAFE_MARGIN - FULLSCREEN_ICON / 2, SAFE_MARGIN + 20, onFullscreenHelp);
       levelRight -= FULLSCREEN_ICON + 22;
     }
 
@@ -74,11 +83,46 @@ export class Hud {
   }
 
   /**
-   * Corner brackets that enter or leave full screen. Its tap area is bigger
-   * than the icon, for fingers, and a press there never starts a stroke
-   * (StrokeInput ignores presses on interactive objects).
+   * A MENU pill that leaves the game for the menu without ending it. Like
+   * every HUD button, a press on it never starts a stroke (StrokeInput
+   * ignores presses on interactive objects).
    */
-  createFullscreenButton(x, y) {
+  createMenuButton(onMenu) {
+    const { width, height } = MENU_BUTTON;
+    const x = SAFE_MARGIN + width / 2;
+    const y = SAFE_MARGIN + 20;
+
+    const frame = this.scene.add.graphics().setPosition(x, y).setDepth(DEPTH.hud);
+    frame.fillStyle(COLOR.silhouette, 0.75);
+    frame.fillRoundedRect(-width / 2, -height / 2, width, height, height / 2);
+    frame.lineStyle(2, COLOR.frost, 0.8);
+    frame.strokeRoundedRect(-width / 2, -height / 2, width, height, height / 2);
+
+    this.scene.add
+      .text(x, y, 'MENU', {
+        fontFamily: FONT.display,
+        fontStyle: '700',
+        fontSize: '22px',
+        color: PALETTE.frost,
+        padding: { x: 10, y: 10 } // room for the glow
+      })
+      .setShadow(0, 0, PALETTE.frostGlow, 10, false, true)
+      .setOrigin(0.5)
+      .setDepth(DEPTH.hud);
+
+    this.scene.add
+      .zone(x, y, width + 16, height + 16)
+      .setDepth(DEPTH.hud)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerup', onMenu);
+  }
+
+  /**
+   * Corner brackets that enter or leave full screen. Its tap area is bigger
+   * than the icon, for fingers. Where the browser can't go full screen
+   * (iPhone), it calls `onHelp` instead.
+   */
+  createFullscreenButton(x, y, onHelp) {
     const icon = this.scene.add.graphics().setPosition(x, y).setDepth(DEPTH.hud);
     const draw = () => drawFullscreenIcon(icon, fullscreen.active);
     draw();
@@ -87,7 +131,7 @@ export class Hud {
       .zone(x, y, FULLSCREEN_HIT, FULLSCREEN_HIT)
       .setDepth(DEPTH.hud)
       .setInteractive({ useHandCursor: true })
-      .on('pointerup', () => fullscreen.toggle());
+      .on('pointerup', () => (fullscreen.available ? fullscreen.toggle() : onHelp()));
 
     const stopWatching = fullscreen.onChange(draw);
     this.scene.events.once(Phaser.Scenes.Events.SHUTDOWN, stopWatching);

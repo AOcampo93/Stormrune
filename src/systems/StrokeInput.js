@@ -73,9 +73,11 @@ export class StrokeInput {
     input.on(Phaser.Input.Events.POINTER_UP, this.handleUp, this);
     input.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.handleUp, this);
 
-    // A stroke interrupted by a pause, or by the page losing focus, could
-    // otherwise miss its release event. Drop it instead of recognizing it.
+    // A stroke interrupted by a pause, the menu, or the page losing focus,
+    // could otherwise miss its release event. Drop it instead of
+    // recognizing it.
     scene.events.on(Phaser.Scenes.Events.PAUSE, this.cancel, this);
+    scene.events.on(Phaser.Scenes.Events.SLEEP, this.cancel, this);
     scene.game.events.on(Phaser.Core.Events.BLUR, this.cancel, this);
     scene.game.events.on(Phaser.Core.Events.HIDDEN, this.cancel, this);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.destroy, this);
@@ -232,6 +234,7 @@ export class StrokeInput {
     input.off(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.handleUp, this);
 
     this.scene.events.off(Phaser.Scenes.Events.PAUSE, this.cancel, this);
+    this.scene.events.off(Phaser.Scenes.Events.SLEEP, this.cancel, this);
     this.scene.game.events.off(Phaser.Core.Events.BLUR, this.cancel, this);
     this.scene.game.events.off(Phaser.Core.Events.HIDDEN, this.cancel, this);
   }

@@ -35,6 +35,9 @@ const AMBIENT_LIGHTNING_MS = { min: 5000, max: 11000 };
 
 /** Thor's lightning shakes the screen: less than a draugr boarding does. */
 const STRIKE_SHAKE = { duration: 200, intensity: 0.006 };
+
+/** After coming back from the menu, ignore Escape this long (ms). */
+const WAKE_KEY_GRACE_MS = 300;
 const BOARDING_SHAKE = { duration: 300, intensity: 0.012 };
 
 /**
@@ -87,7 +90,11 @@ export class GameScene extends Phaser.Scene {
     // Spray thrown up at the camera from the bottom corners.
     this.cameraSpray = new CameraSpray(this, this.longship);
     this.createEffects();
-    this.hud = new Hud(this, { lives: this.lives, score: this.score, level: this.level });
+    this.hud = new Hud(
+      this,
+      { lives: this.lives, score: this.score, level: this.level },
+      { onMenu: () => this.openMenu(), onFullscreenHelp: () => this.openMenu('fullscreen-help') }
+    );
 
     // Red edges flashed when a draugr boards the ship (see loseLife()).
     this.vignette = this.add.image(0, 0, 'vignette').setOrigin(0, 0).setAlpha(0).setDepth(DEPTH.vignette);
@@ -107,8 +114,20 @@ export class GameScene extends Phaser.Scene {
     this.recognizer = new RuneRecognizer();
     this.lightning = new Lightning(this);
     this.strokeInput = new StrokeInput(this, (points) => this.handleStroke(points));
-    // F switches full screen on and off (the HUD has a button for it too).
+    // F switches full screen on and off, Escape opens the menu (the HUD has
+    // buttons for both too).
     this.input.keyboard?.on('keydown-F', () => fullscreen.toggle());
+    this.input.keyboard?.on('keydown-ESC', () => {
+      // Escape also resumes from the menu; the same key press must not reach
+      // the game it just woke and send it straight back.
+      if (performance.now() - this.wokeAt > WAKE_KEY_GRACE_MS) {
+        this.openMenu();
+      }
+    });
+    this.wokeAt = 0;
+    const onWake = () => (this.wokeAt = performance.now());
+    this.events.on(Phaser.Scenes.Events.WAKE, onWake);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.WAKE, onWake));
     this.setupOrientationPause();
 
     this.cameras.main.fadeIn(400);
@@ -528,6 +547,8 @@ export class GameScene extends Phaser.Scene {
     // Any resize checks again too, in case a phone's orientation events
     // arrived out of order and left the game paused in landscape.
     this.scale.on(Phaser.Scale.Events.RESIZE, onOrientationChange);
+    // Back from the menu: the phone may have turned in the meantime.
+    this.events.on(Phaser.Scenes.Events.WAKE, onOrientationChange);
 
     // Pausing from inside create() does not stick: Phaser marks the scene as
     // running right after create() returns. Apply the starting state once the
@@ -540,11 +561,29 @@ export class GameScene extends Phaser.Scene {
       this.portraitQuery.removeEventListener('change', onOrientationChange);
       this.scale.off(Phaser.Scale.Events.ORIENTATION_CHANGE, onOrientationChange);
       this.scale.off(Phaser.Scale.Events.RESIZE, onOrientationChange);
+      this.events.off(Phaser.Scenes.Events.WAKE, onOrientationChange);
     });
+  }
+
+  /**
+   * Leaves the game for the menu without ending it. The scene sleeps (no
+   * updates, no drawing, every timer and tween frozen) while How to Play
+   * offers to resume it. `show` opens one of that screen's panels.
+   */
+  openMenu(show) {
+    if (this.isGameOver) {
+      return;
+    }
+    this.scene.sleep();
+    this.scene.run('HowToPlayScene', { show });
   }
 
   /** Pause in portrait, resume in landscape. Safe to call any number of times. */
   syncPause() {
+    // A game left for the menu stays asleep whatever the orientation.
+    if (this.scene.isSleeping()) {
+      return;
+    }
     // Phaser queues pause and resume until its next step, and a phone
     // turning sends several resize events before then, so remember what
     // was asked for rather than ask again.
@@ -559,6 +598,7 @@ export class GameScene extends Phaser.Scene {
       this.scene.resume();
     }
   }
+
 
   /** Snapshot of the gameplay state for "?debug" browser tests. */
   getDebugState() {
