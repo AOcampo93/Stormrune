@@ -1,9 +1,9 @@
+**[Play the game](https://aocampo93.github.io/Stormrune/)** · **[Watch the demo video](https://www.youtube.com/watch?v=vTMc88p-gE4)**
+
 # Overview
 
-**Stormrune**: defend a Viking longship from the draugar by drawing Norse runes.
-
-**[Play it online](https://aocampo93.github.io/Stormrune/)** in any modern browser, on a
-computer or on a phone held in landscape.
+**Stormrune**: defend a Viking longship from the draugar by drawing Norse runes. It plays
+in any modern browser, on a computer or on a phone held in landscape.
 
 ![Stormrune: Thor raises his hammer and lightning strikes a draugr, with a giant looming in the storm](docs/screenshot.jpg)
 
@@ -85,7 +85,7 @@ All art and characters are original:
   the SIL Open Font License. They are bundled from [Fontsource](https://fontsource.org/),
   so the game needs no font service.
 
-[Software Demo Video](https://youtu.be/vTMc88p-gE4)
+[Software Demo Video](https://www.youtube.com/watch?v=vTMc88p-gE4)
 
 # Development Environment
 
