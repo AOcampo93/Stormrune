@@ -15,6 +15,7 @@ import { Hud } from '../ui/Hud.js';
 import { getLevelConfig } from '../config/levels.js';
 import { firstTexture } from '../systems/spriteSheets.js';
 import { addRain } from '../systems/rain.js';
+import { fullscreen } from '../ui/fullscreen.js';
 
 /**
  * Random spread (px) around a lane's start on the horizon and its boarding
@@ -105,6 +106,8 @@ export class GameScene extends Phaser.Scene {
     this.recognizer = new RuneRecognizer();
     this.lightning = new Lightning(this);
     this.strokeInput = new StrokeInput(this, (points) => this.handleStroke(points));
+    // F switches full screen on and off (the HUD has a button for it too).
+    this.input.keyboard?.on('keydown-F', () => fullscreen.toggle());
     this.setupOrientationPause();
 
     this.cameras.main.fadeIn(400);

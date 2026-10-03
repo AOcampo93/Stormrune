@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { MenuScreen } from '../ui/MenuScreen.js';
+import { enterFullscreenOnTouch } from '../ui/fullscreen.js';
 import { queueGlyphs, traceGuide, tracingPicture, hammerIcon } from '../ui/runeArt.js';
 import { RUNE_IDS, RUNE_NAMES } from '../systems/runeTemplates.js';
 
@@ -9,6 +10,20 @@ const RUNE_NOTES = {
   sowilo: { meaning: 'the sun', stroke: 'Right, down-left, right' },
   tiwaz: { meaning: 'victory', stroke: 'Up-right, then down-right' }
 };
+
+/**
+ * Safari on iPhone can't put a page in full screen, but a game added to the
+ * home screen opens without the browser's bars. In the browser there, the
+ * tip says how.
+ */
+const IPHONE_IN_BROWSER =
+  /iPhone|iPod/.test(navigator.userAgent) &&
+  !navigator.standalone &&
+  !window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
+
+const TIP = IPHONE_IN_BROWSER
+  ? 'Tip: to play full screen on iPhone, tap Share, then Add to Home Screen.'
+  : 'Tip: size and direction don’t matter, and a stroke that isn’t a rune never costs a hammer.';
 
 /**
  * The first screen: the saga, the rules in four steps, and the three runes
@@ -24,7 +39,10 @@ export class HowToPlayScene extends Phaser.Scene {
       backdrop: 'screen:how-to-play',
       html: howToPlayHtml(),
       actions: {
-        begin: () => this.scene.start('GameScene'),
+        begin: () => {
+          enterFullscreenOnTouch();
+          this.scene.start('GameScene');
+        },
         about: () => this.scene.start('AboutScene')
       },
       keys: { ENTER: 'begin', SPACE: 'begin' }
@@ -108,7 +126,7 @@ function howToPlayHtml() {
       </section>
 
       <footer class="how-to-play-footer">
-        <span class="tip">Tip: size and direction don’t matter, and a stroke that isn’t a rune never costs a hammer.</span>
+        <span class="tip">${TIP}</span>
         <div class="buttons">
           <button class="button button-secondary" data-action="about">About</button>
           <button class="button button-primary" data-action="begin">Begin</button>

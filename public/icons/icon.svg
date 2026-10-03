@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- The game's icon: the rune Sowilo, glowing, on the night sky. The glyph
+       stays inside the middle 80% so it survives any icon mask. -->
+  <rect width="512" height="512" fill="#0B1A2E"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="160,150 352,150 160,362 352,362" stroke="#00E5FF" stroke-opacity="0.22" stroke-width="72"/>
+    <polyline points="160,150 352,150 160,362 352,362" stroke="#00E5FF" stroke-width="36"/>
+    <polyline points="160,150 352,150 160,362 352,362" stroke="#E6FBFF" stroke-width="12"/>
+  </g>
+</svg>

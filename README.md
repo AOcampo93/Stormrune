@@ -44,6 +44,10 @@ Draw a rune anywhere on the screen in one stroke:
 - A stroke that isn't a rune just fizzles. Misreads never cost you a life.
 - Destroy enough draugar to clear a level. Each level spawns them more often, makes them walk faster and gives them longer rune queues. After level 5 the game is endless, getting about 10% harder per level.
 - Landscape only: on a phone held upright, the game pauses and asks you to rotate.
+- Full screen: on a phone, **Begin** switches to full screen where the browser allows
+  it (Android). The button at the top right, or the F key, turns it on and off. Safari
+  on iPhone can't put a page in full screen: tap **Share**, then **Add to Home Screen**,
+  and the game opens from there without the browser's bars.
 
 ## Purpose
 
@@ -109,6 +113,9 @@ Then open the address Vite prints (usually http://localhost:5173).
 
 ### Play on your phone
 
+The easiest way is the [online version](https://aocampo93.github.io/Stormrune/). To try
+local changes on a phone:
+
 1. Connect the phone and the computer to the same Wi-Fi network.
 2. Run `npm run build` and then `npm run preview -- --host`. You can also use `npm run dev -- --host`.
 3. Open the **Network** address Vite prints on the phone and hold it in landscape.
@@ -143,6 +150,7 @@ src/
   entities/Thor.js           the hero's animations: idle, three attacks, hurt, death
   ui/Hud.js                  lives, score and level
   ui/MenuScreen.js           a menu screen: design artwork, rain, HTML text and buttons
+  ui/fullscreen.js           full screen where the browser allows it
   ui/runeArt.js              runes drawn as SVG for the screens, from the rune templates
   ui/screens.css             the menu screens' layout and look, from their designs
   config/levels.js           difficulty table and endless scaling

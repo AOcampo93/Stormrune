@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { MenuScreen } from '../ui/MenuScreen.js';
+import { enterFullscreenOnTouch } from '../ui/fullscreen.js';
 
 /**
  * A finger or mouse button may still be down from the last stroke when this
@@ -44,7 +45,10 @@ export class GameOverScene extends Phaser.Scene {
           </div>
         </div>`,
       actions: {
-        'play-again': () => this.scene.start('GameScene'),
+        'play-again': () => {
+          enterFullscreenOnTouch();
+          this.scene.start('GameScene');
+        },
         'how-to-play': () => this.scene.start('HowToPlayScene')
       },
       keys: { ENTER: 'play-again', SPACE: 'play-again', ESC: 'how-to-play' },
