@@ -406,6 +406,13 @@
   color: #c9d8e4;
 }
 
+.overlay-panel p.settings-problem {
+  font-size: 20px;
+  line-height: 1.35;
+  color: #9fb3c6;
+  overflow-wrap: anywhere;
+}
+
 .overlay-panel strong {
   font-weight: 500;
   color: #eef5fa;

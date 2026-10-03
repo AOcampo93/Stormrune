@@ -9,6 +9,7 @@ import { PALETTE } from './config/palette.js';
 import { releaseStaleTouches } from './systems/staleTouches.js';
 import { keepGameInView } from './systems/viewport.js';
 import { reloadIfGraphicsStayLost } from './systems/recovery.js';
+import { keepRunningAfterErrors, lastProblem } from './systems/problems.js';
 import { tidyAddressBar } from './systems/updates.js';
 
 // The typefaces of the menu screens and the HUD, bundled with the game
@@ -62,6 +63,7 @@ const config = {
 };
 
 const game = new Phaser.Game(config);
+keepRunningAfterErrors(game);
 releaseStaleTouches(game);
 keepGameInView(game);
 reloadIfGraphicsStayLost(game);
@@ -75,15 +77,39 @@ if (DEBUG) {
     get state() {
       const gameScene = game.scene.getScene('GameScene');
       return {
+        // Counts every frame the game runs: it stops if the game loop dies.
+        frame: game.loop.frame,
         activeScenes: game.scene.getScenes(true).map((scene) => scene.scene.key),
         // A game left for the menu sleeps until it is resumed.
         gameSleeping: game.scene.isSleeping('GameScene'),
+        lastProblem: lastProblem(),
+        // What the renderer holds on the GPU: counts that keep growing are a leak.
+        gpu: game.renderer?.glTextureWrappers
+          ? {
+              textures: game.renderer.glTextureWrappers.length,
+              framebuffers: game.renderer.glFramebufferWrappers.length,
+              buffers: game.renderer.glBufferWrappers.length
+            }
+          : null,
         // Input slots: 0 is the mouse, the rest are fingers.
         pointers: game.input.pointers.map((p) => ({ id: p.id, active: p.active, down: p.isDown })),
         // The scene object exists from boot, but it has no gameplay state
         // until it starts for the first time (after the assets load).
         ...(gameScene?.draugar ? gameScene.getDebugState() : {})
       };
+    },
+
+    /** Makes the next `count` game frames fail, to check that the game survives them. */
+    failFrames(count = 1) {
+      let left = count;
+      const fail = () => {
+        left -= 1;
+        if (left === 0) {
+          game.events.off(Phaser.Core.Events.POST_STEP, fail);
+        }
+        throw new Error('A frame failed on purpose (debug)');
+      };
+      game.events.on(Phaser.Core.Events.POST_STEP, fail);
     }
   };
 }

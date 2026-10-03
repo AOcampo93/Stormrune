@@ -609,6 +609,9 @@ export class GameScene extends Phaser.Scene {
       // The camera is gone once the scene has shut down (game over).
       shaking: this.cameras.main?.shakeEffect.isRunning ?? false,
       paused: this.scene.isPaused(),
+      // Game objects and tweens alive in the scene: these must not keep growing.
+      objects: this.children.length,
+      tweens: this.tweens.getTweens().length,
       score: this.score,
       lives: this.lives,
       level: this.level,
@@ -618,6 +621,12 @@ export class GameScene extends Phaser.Scene {
       gameOver: this.isGameOver,
       thor: this.thor.current,
       strokesHandled: this.strokesHandled,
+      // The stroke being drawn: which input slot draws it, and how far along.
+      stroke: {
+        enabled: this.strokeInput.enabled,
+        slot: this.strokeInput.pointer?.id ?? null,
+        points: this.strokeInput.points.length
+      },
       castCount: this.castCount,
       lastRecognition: this.lastRecognition,
       spawned: this.spawnCount,

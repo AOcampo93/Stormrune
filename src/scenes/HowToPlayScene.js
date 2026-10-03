@@ -4,6 +4,7 @@ import { fullscreen, enterFullscreenOnTouch, fullscreenIconSvg } from '../ui/ful
 import { queueGlyphs, traceGuide, tracingPicture, hammerIcon } from '../ui/runeArt.js';
 import { RUNE_IDS, RUNE_NAMES } from '../systems/runeTemplates.js';
 import { loadLatestVersion } from '../systems/updates.js';
+import { lastProblem } from '../systems/problems.js';
 
 /** What each rune stands for in the Elder Futhark, and how to trace it here. */
 const RUNE_NOTES = {
@@ -211,6 +212,7 @@ function howToPlayHtml(gameInProgress) {
         <span class="label">SETTINGS</span>
         <h2 id="settings-title" class="overlay-title">Game version</h2>
         <p class="settings-version">${__APP_VERSION__}</p>
+        <p class="settings-problem">${problemReport()}</p>
         <p>Seeing an old version, or something not working? This clears the game’s saved
         files and loads the latest version.</p>
         <div class="buttons">
@@ -232,6 +234,19 @@ function howToPlayHtml(gameInProgress) {
         </div>
       </section>
     </div>`;
+}
+
+/**
+ * The last error the game survived in this tab, for a player to report
+ * (see problems.js). It is escaped: an error message is not HTML.
+ */
+function problemReport() {
+  const problem = lastProblem();
+  if (!problem) {
+    return 'No problems recorded in this session.';
+  }
+  const escape = (text) => String(text).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+  return `Last problem (${escape(problem.at)}, ${escape(problem.where)}): ${escape(problem.message)}`;
 }
 
 /** A gear: eight teeth around a ring with a hole, in the screens' glowing blue. */

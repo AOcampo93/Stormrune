@@ -11,7 +11,10 @@
 export function keepGameInView(game) {
   const refit = () => {
     window.scrollTo(0, 0);
-    game.scale.refresh();
+    // The scale manager has nothing to measure until the game has started.
+    if (game.isBooted) {
+      game.scale.refresh();
+    }
   };
   const refitNowAndSoon = () => {
     refit();
