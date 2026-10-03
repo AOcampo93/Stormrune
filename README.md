@@ -49,6 +49,10 @@ Draw a rune anywhere on the screen in one stroke:
   or the F key, turns it on and off. Safari
   on iPhone can't put a page in full screen: tap **Share**, then **Add to Home Screen**,
   and the game opens from there without the browser's bars.
+- Settings: the gear on the How to Play screen shows which version is running (its
+  commit and build date) and has **Get the latest version**. That clears any service
+  worker and cached files, refreshes the game's files and reloads, for a phone that
+  still shows an old version.
 
 ## Purpose
 
@@ -139,6 +143,7 @@ src/
   scenes/GameOverScene.js    final score and restart
   systems/StrokeInput.js     pointer capture and the glowing trail
   systems/staleTouches.js    frees touch slots held by fingers that are gone
+  systems/updates.js         "Get the latest version": clears caches and reloads
   systems/RuneRecognizer.js  $1 Unistroke Recognizer
   systems/runeTemplates.js   the three rune shapes
   systems/Lightning.js       procedural lightning bolts

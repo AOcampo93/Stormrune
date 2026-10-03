@@ -24,12 +24,15 @@ export class MenuScreen {
    * @param {Record<string, () => void>} options.actions What each button that leaves the screen does.
    * @param {Record<string, () => void>} [options.controls] What each button that stays does.
    * @param {Record<string, string>} [options.keys] Keyboard shortcuts, e.g. { ENTER: 'begin' }.
+   * @param {() => boolean} [options.holdActions] While it returns true (a panel is open on top
+   *   of the screen), buttons and keys that would leave the screen do nothing.
    * @param {number} [options.inputDelayMs] Buttons ignore input this long at first, so a
    *   finger lifted from the last stroke of a game can't press one by accident.
    */
-  constructor(scene, { backdrop, html, actions, controls = {}, keys = {}, inputDelayMs = 0 }) {
+  constructor(scene, { backdrop, html, actions, controls = {}, keys = {}, inputDelayMs = 0, holdActions = () => false }) {
     this.actions = actions;
     this.controls = controls;
+    this.holdActions = holdActions;
     this.done = false;
     this.ready = inputDelayMs === 0;
 
@@ -68,7 +71,7 @@ export class MenuScreen {
     }
     if (this.controls[action]) {
       this.controls[action]();
-    } else if (this.actions[action]) {
+    } else if (this.actions[action] && !this.holdActions()) {
       this.done = true;
       this.actions[action]();
     }

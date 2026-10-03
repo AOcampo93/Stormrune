@@ -3,6 +3,7 @@ import { MenuScreen } from '../ui/MenuScreen.js';
 import { fullscreen, enterFullscreenOnTouch, fullscreenIconSvg } from '../ui/fullscreen.js';
 import { queueGlyphs, traceGuide, tracingPicture, hammerIcon } from '../ui/runeArt.js';
 import { RUNE_IDS, RUNE_NAMES } from '../systems/runeTemplates.js';
+import { loadLatestVersion } from '../systems/updates.js';
 
 /** What each rune stands for in the Elder Futhark, and how to trace it here. */
 const RUNE_NOTES = {
@@ -27,7 +28,8 @@ const TIP = IPHONE_IN_BROWSER
 
 /**
  * The first screen: the saga, the rules in four steps, and the three runes
- * with how to trace each one. "Begin" starts the game.
+ * with how to trace each one. "Begin" starts the game. The gear opens the
+ * settings: the version running, and a way to load the latest one.
  */
 export class HowToPlayScene extends Phaser.Scene {
   constructor() {
@@ -35,6 +37,9 @@ export class HowToPlayScene extends Phaser.Scene {
   }
 
   create() {
+    let settings = null; // the settings panel, found once the screen exists
+    const settingsOpen = () => settings.classList.contains('is-open');
+
     const screen = new MenuScreen(this, {
       backdrop: 'screen:how-to-play',
       html: howToPlayHtml(),
@@ -45,9 +50,22 @@ export class HowToPlayScene extends Phaser.Scene {
         },
         about: () => this.scene.start('AboutScene')
       },
-      controls: { fullscreen: () => fullscreen.toggle() },
-      keys: { ENTER: 'begin', SPACE: 'begin', F: 'fullscreen' }
+      controls: {
+        fullscreen: () => fullscreen.toggle(),
+        settings: () => settings.classList.add('is-open'),
+        'close-settings': () => settings.classList.remove('is-open'),
+        update: () => {
+          const button = settings.querySelector('[data-action="update"]');
+          button.disabled = true;
+          button.textContent = 'Updating…';
+          loadLatestVersion();
+        }
+      },
+      keys: { ENTER: 'begin', SPACE: 'begin', F: 'fullscreen', ESC: 'close-settings' },
+      // With the settings open, Begin and About wait until they are closed.
+      holdActions: () => settingsOpen()
     });
+    settings = screen.node.querySelector('.settings');
 
     // The full-screen button shows whether the page is in full screen now.
     const button = screen.node.querySelector('[data-action="fullscreen"]');
@@ -140,10 +158,39 @@ function howToPlayHtml() {
       <footer class="how-to-play-footer">
         <span class="tip">${TIP}</span>
         <div class="buttons">
+          <button class="button button-icon" data-action="settings" aria-label="Settings">${gearIconSvg()}</button>
           ${fullscreen.available ? `<button class="button button-icon" data-action="fullscreen">${fullscreenIconSvg()}</button>` : ''}
           <button class="button button-secondary" data-action="about">About</button>
           <button class="button button-primary" data-action="begin">Begin</button>
         </div>
       </footer>
+    </div>
+
+    <div class="settings">
+      <section class="panel settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <span class="label">SETTINGS</span>
+        <h2 id="settings-title" class="settings-title">Game version</h2>
+        <p class="settings-version">${__APP_VERSION__}</p>
+        <p>Seeing an old version, or something not working? This clears the game’s saved
+        files and loads the latest version.</p>
+        <div class="buttons">
+          <button class="button button-secondary" data-action="close-settings">Close</button>
+          <button class="button button-primary" data-action="update">Get the latest version</button>
+        </div>
+      </section>
     </div>`;
+}
+
+/** A gear: eight teeth around a ring with a hole, in the screens' glowing blue. */
+function gearIconSvg() {
+  const teeth = Array.from({ length: 8 }, (_, k) => {
+    const angle = (k * Math.PI) / 4;
+    const point = (r) => `${(20 + r * Math.cos(angle)).toFixed(1)} ${(20 + r * Math.sin(angle)).toFixed(1)}`;
+    return `M${point(12)} L${point(17)}`;
+  }).join(' ');
+  return `<svg viewBox="0 0 40 40" width="40" height="40" fill="none" aria-hidden="true">
+    <path d="${teeth}" stroke-width="5.5" stroke-linecap="butt"/>
+    <circle cx="20" cy="20" r="10.5"/>
+    <circle cx="20" cy="20" r="4" stroke-width="3"/>
+  </svg>`;
 }

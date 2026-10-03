@@ -7,6 +7,7 @@ import { GameOverScene } from './scenes/GameOverScene.js';
 import { GAME_WIDTH, GAME_HEIGHT } from './config/layout.js';
 import { PALETTE } from './config/palette.js';
 import { releaseStaleTouches } from './systems/staleTouches.js';
+import { tidyAddressBar } from './systems/updates.js';
 
 // The typefaces of the menu screens and the HUD, bundled with the game
 // (SIL Open Font License), and the screens' own styles.
@@ -22,6 +23,8 @@ import './ui/screens.css';
 // what the rune recognizer saw, and a read-only state snapshot that automated
 // browser tests can query. Players never see either.
 const DEBUG = new URLSearchParams(window.location.search).has('debug');
+
+tidyAddressBar();
 
 const config = {
   type: Phaser.AUTO, // WebGL when available, Canvas as a fallback

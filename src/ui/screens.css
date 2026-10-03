@@ -359,6 +359,63 @@
   color: #c9d8e4;
 }
 
+/* The settings, on top of the whole How to Play screen when open. */
+.settings {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 6, 12, 0.72);
+}
+
+.settings.is-open {
+  display: flex;
+}
+
+.settings-panel {
+  width: 900px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 44px 52px;
+  background: rgba(6, 12, 24, 0.94);
+  border-color: rgba(143, 224, 240, 0.35);
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.6);
+}
+
+.settings-title {
+  font-family: 'Cinzel', serif;
+  font-size: 48px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #f2f8fc;
+}
+
+.settings-version {
+  font-family: 'Cinzel', serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #8fe0f0;
+}
+
+.settings-panel p:not(.settings-version) {
+  font-size: 26px;
+  line-height: 1.4;
+  color: #c9d8e4;
+}
+
+.settings-panel .buttons {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.settings .button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
 .how-to-play-footer {
   margin-top: auto;
   display: flex;
