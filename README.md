@@ -45,7 +45,8 @@ Draw a rune anywhere on the screen in one stroke:
 - Destroy enough draugar to clear a level. Each level spawns them more often, makes them walk faster and gives them longer rune queues. After level 5 the game is endless, getting about 10% harder per level.
 - Landscape only: on a phone held upright, the game pauses and asks you to rotate.
 - Full screen: on a phone, **Begin** switches to full screen where the browser allows
-  it (Android). The button at the top right, or the F key, turns it on and off. Safari
+  it (Android). A button on the How to Play screen and at the top right of the game,
+  or the F key, turns it on and off. Safari
   on iPhone can't put a page in full screen: tap **Share**, then **Add to Home Screen**,
   and the game opens from there without the browser's bars.
 

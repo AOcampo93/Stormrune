@@ -65,3 +65,26 @@ export function enterFullscreenOnTouch() {
     fullscreen.enter();
   }
 }
+
+/**
+ * The full-screen icon for the menu screens, as SVG: corner brackets that
+ * point out (enter full screen) or, inside an element with class
+ * "is-active", point in (leave it). The HUD draws the same shape with
+ * Graphics.
+ */
+export function fullscreenIconSvg() {
+  const corners = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+  const bracket = (inward, [sx, sy]) => {
+    const half = 15;
+    const arm = 10;
+    const cx = 20 + sx * (inward ? half - arm : half);
+    const cy = 20 + sy * (inward ? half - arm : half);
+    const toward = inward ? 1 : -1;
+    return `M${cx + toward * sx * arm} ${cy} L${cx} ${cy} L${cx} ${cy + toward * sy * arm}`;
+  };
+  const path = (inward) => corners.map((corner) => bracket(inward, corner)).join(' ');
+  return `<svg viewBox="0 0 40 40" width="40" height="40" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path class="icon-enter" d="${path(false)}"/>
+    <path class="icon-leave" d="${path(true)}"/>
+  </svg>`;
+}

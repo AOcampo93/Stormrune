@@ -118,6 +118,39 @@
   background: rgba(18, 60, 84, 0.5);
 }
 
+/* A round button with only an icon (full screen). */
+.button-icon {
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 12, 24, 0.6);
+  border: 1.5px solid rgba(143, 224, 240, 0.45);
+}
+
+.button-icon:hover {
+  border-color: #8fe0f0;
+  background: rgba(18, 60, 84, 0.5);
+}
+
+.button-icon svg {
+  stroke: #bff4ff;
+  stroke-width: 3.5;
+  filter: drop-shadow(0 0 6px rgba(95, 220, 245, 0.7));
+}
+
+/* Brackets pointing out enter full screen; pointing in, they leave it. */
+.button-icon .icon-leave,
+.button-icon.is-active .icon-enter {
+  display: none;
+}
+
+.button-icon.is-active .icon-leave {
+  display: inline;
+}
+
 /* Buttons wait a moment before they work (see MenuScreen's inputDelayMs). */
 .screen.is-waiting .button {
   opacity: 0.4;

@@ -10,9 +10,10 @@ const STAGE_WIDTH = 1920;
  * top. The HTML is styled by screens.css; Phaser keeps it scaled and placed
  * over the canvas as the window changes size.
  *
- * Buttons are plain <button data-action="name"> elements; `actions` says
- * what each name does. Every action leaves the screen, so only the first
- * one counts.
+ * Buttons are plain <button data-action="name"> elements. `actions` say
+ * what the buttons that leave the screen do, so only the first one counts.
+ * `controls` are buttons that stay on the screen and work any number of
+ * times, like the full-screen toggle.
  */
 export class MenuScreen {
   /**
@@ -20,13 +21,15 @@ export class MenuScreen {
    * @param {object} options
    * @param {string} options.backdrop Texture key of the screen's artwork.
    * @param {string} options.html The screen's content.
-   * @param {Record<string, () => void>} options.actions What each button does.
+   * @param {Record<string, () => void>} options.actions What each button that leaves the screen does.
+   * @param {Record<string, () => void>} [options.controls] What each button that stays does.
    * @param {Record<string, string>} [options.keys] Keyboard shortcuts, e.g. { ENTER: 'begin' }.
    * @param {number} [options.inputDelayMs] Buttons ignore input this long at first, so a
    *   finger lifted from the last stroke of a game can't press one by accident.
    */
-  constructor(scene, { backdrop, html, actions, keys = {}, inputDelayMs = 0 }) {
+  constructor(scene, { backdrop, html, actions, controls = {}, keys = {}, inputDelayMs = 0 }) {
     this.actions = actions;
+    this.controls = controls;
     this.done = false;
     this.ready = inputDelayMs === 0;
 
@@ -60,10 +63,14 @@ export class MenuScreen {
   }
 
   run(action) {
-    if (!this.ready || this.done || !this.actions[action]) {
+    if (!this.ready || this.done) {
       return;
     }
-    this.done = true;
-    this.actions[action]();
+    if (this.controls[action]) {
+      this.controls[action]();
+    } else if (this.actions[action]) {
+      this.done = true;
+      this.actions[action]();
+    }
   }
 }

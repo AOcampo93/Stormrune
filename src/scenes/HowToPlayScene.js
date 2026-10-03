@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { MenuScreen } from '../ui/MenuScreen.js';
-import { enterFullscreenOnTouch } from '../ui/fullscreen.js';
+import { fullscreen, enterFullscreenOnTouch, fullscreenIconSvg } from '../ui/fullscreen.js';
 import { queueGlyphs, traceGuide, tracingPicture, hammerIcon } from '../ui/runeArt.js';
 import { RUNE_IDS, RUNE_NAMES } from '../systems/runeTemplates.js';
 
@@ -35,7 +35,7 @@ export class HowToPlayScene extends Phaser.Scene {
   }
 
   create() {
-    new MenuScreen(this, {
+    const screen = new MenuScreen(this, {
       backdrop: 'screen:how-to-play',
       html: howToPlayHtml(),
       actions: {
@@ -45,8 +45,20 @@ export class HowToPlayScene extends Phaser.Scene {
         },
         about: () => this.scene.start('AboutScene')
       },
-      keys: { ENTER: 'begin', SPACE: 'begin' }
+      controls: { fullscreen: () => fullscreen.toggle() },
+      keys: { ENTER: 'begin', SPACE: 'begin', F: 'fullscreen' }
     });
+
+    // The full-screen button shows whether the page is in full screen now.
+    const button = screen.node.querySelector('[data-action="fullscreen"]');
+    if (button) {
+      const show = () => {
+        button.classList.toggle('is-active', fullscreen.active);
+        button.setAttribute('aria-label', fullscreen.active ? 'Leave full screen' : 'Full screen');
+      };
+      show();
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, fullscreen.onChange(show));
+    }
   }
 }
 
@@ -128,6 +140,7 @@ function howToPlayHtml() {
       <footer class="how-to-play-footer">
         <span class="tip">${TIP}</span>
         <div class="buttons">
+          ${fullscreen.available ? `<button class="button button-icon" data-action="fullscreen">${fullscreenIconSvg()}</button>` : ''}
           <button class="button button-secondary" data-action="about">About</button>
           <button class="button button-primary" data-action="begin">Begin</button>
         </div>
