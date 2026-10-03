@@ -83,7 +83,7 @@ All art and characters are original:
   the SIL Open Font License. They are bundled from [Fontsource](https://fontsource.org/),
   so the game needs no font service.
 
-[Software Demo Video](https://youtu.be/REPLACE_WITH_VIDEO_ID)
+[Software Demo Video](https://youtu.be/vTMc88p-gE4)
 
 # Development Environment
 
