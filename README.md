@@ -2,6 +2,9 @@
 
 **Stormrune**: defend a Viking longship from the draugar by drawing Norse runes.
 
+**[Play it online](https://aocampo93.github.io/Stormrune/)** in any modern browser, on a
+computer or on a phone held in landscape.
+
 ![Stormrune: Thor raises his hammer and lightning strikes a draugr, with a giant looming in the storm](docs/screenshot.jpg)
 
 As a software engineer, I wanted to learn how a real game framework structures a
@@ -237,10 +240,13 @@ few extra draw calls and avoids the problem.
 
 ## Deploying
 
-The build uses relative asset URLs (`base: './'` in [vite.config.js](vite.config.js)).
-That means `dist/` works from any static host or sub-folder, for example a GitHub
-Pages project site, Netlify or itch.io. The hosting choice is still pending; a deploy
-script or workflow will be added once it is made.
+The game is live at https://aocampo93.github.io/Stormrune/. Every push to `main` runs
+[.github/workflows/deploy.yml](.github/workflows/deploy.yml), which checks the rune
+recognizer, builds the game and publishes `dist/` on GitHub Pages.
+
+The build uses relative asset URLs (`base: './'` in [vite.config.js](vite.config.js)),
+so `dist/` also works from any other static host or sub-folder, such as Netlify,
+itch.io or a plain web server.
 
 # Useful Websites
 
@@ -259,7 +265,6 @@ script or workflow will be added once it is made.
 
 # Future Work
 
-- Publish a playable demo on a static host and link it here and in the repository description.
 - Sound: thunder, rune chimes, an ambient storm, music.
 - A pause menu and saved high scores.
 - Bosses: a frost giant and Jörmungandr.
