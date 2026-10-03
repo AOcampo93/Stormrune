@@ -1,20 +1,22 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, HORIZON_Y, SHIP_X, SAFE_MARGIN, DEPTH } from '../config/layout.js';
+import { GAME_WIDTH, GAME_HEIGHT, HORIZON_Y, SAFE_MARGIN, DEPTH, LANES, gunwalePoint } from '../config/layout.js';
 import { PALETTE, COLOR } from '../config/palette.js';
 import { StrokeInput } from '../systems/StrokeInput.js';
 import { RuneRecognizer } from '../systems/RuneRecognizer.js';
 import { RUNE_IDS, RUNE_NAMES } from '../systems/runeTemplates.js';
 import { Lightning } from '../systems/Lightning.js';
 import { Draugr } from '../entities/Draugr.js';
+import { Longship } from '../entities/Longship.js';
+import { Thor } from '../entities/Thor.js';
 import { Hud } from '../ui/Hud.js';
 import { getLevelConfig } from '../config/levels.js';
 
 /**
- * Draugar rise in one of these lanes (x on the horizon). Spreading them out
- * keeps their rune panels from piling on top of each other.
+ * Random spread (px) around a lane's start on the horizon and its boarding
+ * height, so draugar in the same lane don't follow the exact same path.
  */
-const LANES = [220, 388, 556, 724, 892, 1060];
-const LANE_JITTER = 30;
+const LANE_JITTER_X = 30;
+const LANE_JITTER_Y = 12;
 
 /** Points for each draugr destroyed. */
 const KILL_SCORE = 100;
@@ -70,7 +72,11 @@ export class GameScene extends Phaser.Scene {
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     this.createBackground();
-    this.add.image(SHIP_X, GAME_HEIGHT, 'ship').setOrigin(0.5, 1).setDepth(DEPTH.ship);
+
+    // Thor rides inside the longship's container, so he rocks with the deck.
+    this.longship = new Longship(this);
+    this.thor = new Thor(this);
+    this.longship.carry(this.thor.sprite);
     this.createEffects();
     this.hud = new Hud(this, { lives: this.lives, score: this.score, level: this.level });
 
@@ -100,6 +106,7 @@ export class GameScene extends Phaser.Scene {
 
   update(time, delta) {
     this.scrollBackground(delta);
+    this.longship.update(delta);
 
     // Once the game is lost everything freezes while the screen fades out.
     if (this.isGameOver) {
@@ -301,18 +308,22 @@ export class GameScene extends Phaser.Scene {
     const queueLength = Phaser.Math.Between(1, maxQueue);
     const runeQueue = Array.from({ length: queueLength }, () => Phaser.Utils.Array.GetRandom(RUNE_IDS));
 
-    this.draugar.push(new Draugr(this, { x: this.pickLaneX(), runeQueue, speed }));
+    const lane = this.pickLane();
+    const startX = lane.startX + Phaser.Math.Between(-LANE_JITTER_X, LANE_JITTER_X);
+    const board = gunwalePoint(lane.side, lane.boardY + Phaser.Math.Between(-LANE_JITTER_Y, LANE_JITTER_Y));
+
+    this.draugar.push(new Draugr(this, { startX, board, runeQueue, speed }));
   }
 
   /** The least recently used lane, so consecutive draugar never share one. */
-  pickLaneX() {
+  pickLane() {
     const oldest = Math.min(...this.laneLastUsed);
     const candidates = LANES.map((_, i) => i).filter((i) => this.laneLastUsed[i] === oldest);
     const lane = Phaser.Utils.Array.GetRandom(candidates);
 
     this.laneLastUsed[lane] = this.spawnCount;
     this.spawnCount += 1;
-    return LANES[lane] + Phaser.Math.Between(-LANE_JITTER, LANE_JITTER);
+    return LANES[lane];
   }
 
   /** Takes a draugr out of play (it can no longer be targeted or counted). */
@@ -352,6 +363,7 @@ export class GameScene extends Phaser.Scene {
 
     this.castCount += 1;
     this.flashCamera();
+    this.thor.attack(runeId);
 
     for (const draugr of targets) {
       const hit = draugr.hitPoint;
@@ -415,6 +427,9 @@ export class GameScene extends Phaser.Scene {
 
     this.lives -= 1;
     this.hud.setLives(this.lives);
+    if (this.lives > 0) {
+      this.thor.hurt();
+    }
 
     if (!this.reducedMotion) {
       this.cameras.main.shake(300, 0.012);
@@ -428,17 +443,19 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** Stops play, fades to black, then shows the final score. */
+  /** Stops play; Thor falls, then the screen fades to the final score. */
   gameOver() {
     this.isGameOver = true;
     this.strokeInput.setEnabled(false);
     this.spawnTimer?.remove();
 
-    const camera = this.cameras.main;
-    camera.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.start('GameOverScene', { score: this.score, level: this.level });
+    this.thor.die(() => {
+      const camera = this.cameras.main;
+      camera.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+        this.scene.start('GameOverScene', { score: this.score, level: this.level });
+      });
+      camera.fadeOut(700, 0, 0, 0);
     });
-    camera.fadeOut(900, 0, 0, 0);
   }
 
   /**
@@ -517,6 +534,7 @@ export class GameScene extends Phaser.Scene {
       kills: this.kills,
       inTransition: this.isLevelTransition,
       gameOver: this.isGameOver,
+      thor: this.thor.current,
       strokesHandled: this.strokesHandled,
       castCount: this.castCount,
       lastRecognition: this.lastRecognition,

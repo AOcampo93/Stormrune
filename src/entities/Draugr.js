@@ -1,17 +1,14 @@
 import Phaser from 'phaser';
 import { COLOR } from '../config/palette.js';
-import { HORIZON_Y, SHIP_LINE_Y, SHIP_X, DEPTH } from '../config/layout.js';
+import { HORIZON_Y, FULL_SIZE_Y, DEPTH } from '../config/layout.js';
 import { fitRuneToBox } from '../systems/runeTemplates.js';
 
 /** Time (ms) a draugr needs to walk from the horizon to the ship at speed 1. */
 export const BASE_APPROACH_MS = 14000;
 
-/** Size on the horizon and at the ship; the change in scale fakes depth. */
+/** Size on the horizon and at FULL_SIZE_Y; the change in scale fakes depth. */
 const FAR_SCALE = 0.25;
 const NEAR_SCALE = 1;
-
-/** Fraction of the horizontal gap to the ship a draugr closes on its way. */
-const DRIFT_TO_SHIP = 0.25;
 
 /** A frame hitch (or a resume after a pause) never advances more than this. */
 const MAX_STEP_MS = 50;
@@ -27,8 +24,10 @@ const PANEL_GAP_ABOVE_HEAD = 14;
  * longship. Above its head floats its rune queue; each matching rune the
  * player draws removes the first rune, and an empty queue destroys it.
  *
- * Depth is faked: as the draugr approaches, it moves down the screen and
- * grows from FAR_SCALE to NEAR_SCALE, and nearer draugar draw on top.
+ * Depth is faked: the lower on the screen a draugr is, the nearer it is, so
+ * its size follows its height on screen (scaleAt) and nearer draugar draw on
+ * top. It walks in a straight line from the horizon to the point on the
+ * hull's edge where it climbs aboard.
  *
  * This is a plain class that owns two Phaser objects (the body image and the
  * rune panel) rather than a Phaser GameObject subclass. The panel lives on
@@ -38,16 +37,16 @@ const PANEL_GAP_ABOVE_HEAD = 14;
 export class Draugr {
   /**
    * @param {Phaser.Scene} scene
-   * @param {{x: number, runeQueue: string[], speed: number}} options
-   *   x: spawn position on the horizon, runeQueue: rune ids to defeat it,
-   *   speed: the level's speed multiplier.
+   * @param {{startX: number, board: {x: number, y: number}, runeQueue: string[], speed: number}} options
+   *   startX: spawn position on the horizon, board: where it climbs aboard,
+   *   runeQueue: rune ids to defeat it, speed: the level's speed multiplier.
    */
-  constructor(scene, { x, runeQueue, speed }) {
+  constructor(scene, { startX, board, runeQueue, speed }) {
     this.scene = scene;
     this.runeQueue = [...runeQueue];
 
-    this.startX = x;
-    this.endX = x + (SHIP_X - x) * DRIFT_TO_SHIP;
+    this.startX = startX;
+    this.board = board;
     this.approachMs = BASE_APPROACH_MS / speed;
 
     /** 0 on the horizon, 1 at the ship. */
@@ -59,7 +58,7 @@ export class Draugr {
     /** Starts below the surface and tweens to 0: rising out of the waves. */
     this.riseOffset = 60;
 
-    this.body = scene.add.image(x, HORIZON_Y, 'draugr').setOrigin(0.5, 1).setAlpha(0);
+    this.body = scene.add.image(startX, HORIZON_Y, 'draugr').setOrigin(0.5, 1).setAlpha(0);
     this.panel = scene.add.graphics();
     this.drawPanel();
 
@@ -76,9 +75,9 @@ export class Draugr {
     return this.runeQueue[0];
   }
 
-  /** True once its feet have reached the ship's line. */
+  /** True once it has reached the hull and climbs aboard. */
   get hasReachedShip() {
-    return this.groundY >= SHIP_LINE_Y;
+    return this.progress >= 1;
   }
 
   /** Where lightning should strike: the middle of the body. */
@@ -96,13 +95,13 @@ export class Draugr {
     // blend linear motion with a quadratic ease-in to sell the depth.
     const t = 0.5 * this.progress + 0.5 * this.progress * this.progress;
 
-    const scale = Phaser.Math.Linear(FAR_SCALE, NEAR_SCALE, t);
-    this.groundY = Phaser.Math.Linear(HORIZON_Y, SHIP_LINE_Y, t);
+    this.groundY = Phaser.Math.Linear(HORIZON_Y, this.board.y, t);
+    const x = Phaser.Math.Linear(this.startX, this.board.x, t);
+    const scale = scaleAt(this.groundY);
 
     // Cosmetic offsets, scaled with the body: the rise out of the water
     // and a gentle bob as it wades through the waves.
     const bob = Math.sin(this.age / 260) * 4 * scale;
-    const x = Phaser.Math.Linear(this.startX, this.endX, t);
     const y = this.groundY + (this.riseOffset + bob) * scale;
 
     this.body.setPosition(x, y).setScale(scale);
@@ -189,4 +188,13 @@ export class Draugr {
       g.strokePoints(points);
     });
   }
+}
+
+/**
+ * Perspective: a draugr's size grows linearly with how far down the screen
+ * its feet are, from FAR_SCALE on the horizon to NEAR_SCALE at FULL_SIZE_Y
+ * (and a little beyond, for the ones that board near the stern).
+ */
+function scaleAt(y) {
+  return FAR_SCALE + ((NEAR_SCALE - FAR_SCALE) * (y - HORIZON_Y)) / (FULL_SIZE_Y - HORIZON_Y);
 }
