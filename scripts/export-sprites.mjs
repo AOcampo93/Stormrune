@@ -50,23 +50,68 @@ const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from
 const CHARACTER = '-150 -220 1300 1500';
 
 /**
+ * The longship ("Bote idle" design) is exported in layers, so the game can
+ * slip its own water in between them (see Longship and ShipWater). Every
+ * layer is untransformed: the game recreates the rocking with the design's
+ * formula, so it is smooth instead of 12 steps.
+ */
+const BOAT = {
+  design: 'Bote idle.dc.html',
+  viewBox: '-200 0 3000 1800',
+  // Wider and taller than the design's frame: the hull continues past it,
+  // and the extra margin keeps the edges off screen while the boat rocks.
+  exportViewBox: '-700 0 4000 2100',
+  stripTransform: true,
+  anchor: BOAT_ANCHOR,
+  // The game lights the boat up itself, only when lightning strikes.
+  props: { vista: 'hoja', relampagos: false }
+};
+
+// Parts of the boat design, picked with CSS selectors on its SVG frames.
+/** The pool of sea water sloshing on the deck (the game draws it). */
+const POOL = 'g:has(> path[fill="url(#gPool)"])';
+/** Streaks of water running down the inner walls (left out of the game). */
+const WALL_RUNS = 'path[stroke="#5f7faa"]';
+/** The waves breaking over the gunwales: every path drawn over the boat. */
+const BREAKING_WAVES = 'svg > g > path';
+/** Their drops: the game throws its own particles instead. */
+const WAVE_DROPS = 'path[fill="#e2f3f8"]';
+/** Water pouring down the inner walls after a wave (left out of the game). */
+const WAVE_POURING = 'path[stroke="#a9cde0"]';
+/** The boat lit by lightning, drawn over it at the flash's opacity. */
+const LIGHTNING_LIGHT = 'g[opacity]';
+/** The outline of the bench nearest Thor, which stands out of the pool. */
+const NEAR_BENCH = 'M327 1640 L2273 1640 L2273 1660.3 L2269 1674.5 L331 1674.5 L327 1660.3 Z';
+
+/**
  * One entry per animation. `frames` are 1-based frame numbers of the design.
  * Optional: `props` sets design options, `scale` overrides SCALE, `crop:
  * false` keeps the whole frame, `exportViewBox` renders a different area.
+ * To export only part of a design: `remove` drops the elements matching
+ * some CSS selectors, `keep` drops everything else, and `clip` (an SVG path
+ * in design units) cuts out one area.
  */
 const SHEETS = [
+  { ...BOAT, key: 'boat', frames: [1], remove: [POOL, WALL_RUNS] },
+  // The game draws the pool over the deck, then this bench over the pool.
+  { ...BOAT, key: 'boat-bench', frames: [1], clip: NEAR_BENCH },
+  // Waves break over the port side, then the bow, then starboard, in step
+  // with the rocking (frames 2-11).
   {
-    // Only the untransformed boat is exported: the game recreates the
-    // rocking with the same formula, so it is smooth instead of 12 steps.
-    key: 'boat',
-    design: 'Bote idle.dc.html',
-    viewBox: '-200 0 3000 1800',
-    // Wider and taller than the design's frame: the hull continues past it,
-    // and the extra margin keeps the edges off screen while the boat rocks.
-    exportViewBox: '-700 0 4000 2100',
-    frames: [1],
-    stripTransform: true,
-    anchor: BOAT_ANCHOR
+    ...BOAT,
+    key: 'boat-waves',
+    frames: range(1, 12),
+    keep: [BREAKING_WAVES],
+    remove: [WAVE_DROPS, WAVE_POURING]
+  },
+  // A soft glow, so half resolution is plenty. Frame 3 is a flash at its peak.
+  {
+    ...BOAT,
+    key: 'boat-lightning',
+    frames: [3],
+    props: { vista: 'hoja', relampagos: true },
+    keep: [LIGHTNING_LIGHT],
+    scale: 0.16
   },
   // Attacks skip their slow wind-up so the strike lands right away.
   { key: 'thor-idle', design: 'Thor idle.dc.html', viewBox: CHARACTER, frames: range(1, 8), anchor: THOR_ANCHOR },
@@ -141,6 +186,27 @@ for (const sheet of SHEETS) {
       const defs = [...document.querySelectorAll('svg')].find((s) => s.getAttribute('width') === '0')?.querySelector('defs');
       const all = [...document.querySelectorAll(selector)];
 
+      /** Applies the sheet's `remove`, `keep` and `clip` options to one frame. */
+      function selectPart(svg, { remove, keep, clip }) {
+        if (remove) svg.querySelectorAll(remove.join(', ')).forEach((element) => element.remove());
+        if (keep) {
+          const kept = [...svg.querySelectorAll(keep.join(', '))];
+          for (const element of svg.querySelectorAll('*')) {
+            if (!kept.some((k) => k.contains(element) || element.contains(k))) element.remove();
+          }
+        }
+        if (clip) {
+          const ns = 'http://www.w3.org/2000/svg';
+          const clipPath = document.createElementNS(ns, 'clipPath');
+          clipPath.id = 'export-clip';
+          clipPath.appendChild(document.createElementNS(ns, 'path')).setAttribute('d', clip);
+          const group = document.createElementNS(ns, 'g');
+          group.setAttribute('clip-path', 'url(#export-clip)');
+          group.append(...svg.childNodes);
+          svg.append(clipPath, group);
+        }
+      }
+
       // 1-2. Rasterize each requested frame as a standalone SVG.
       const canvases = [];
       for (const number of sheet.frames) {
@@ -151,6 +217,7 @@ for (const sheet of SHEETS) {
         svg.setAttribute('height', height);
         svg.removeAttribute('style');
         if (sheet.stripTransform) svg.querySelector('g[transform]')?.removeAttribute('transform');
+        selectPart(svg, sheet);
         if (defs) svg.insertBefore(defs.cloneNode(true), svg.firstChild);
 
         const image = new Image();
@@ -232,7 +299,7 @@ for (const sheet of SHEETS) {
     await writeFile(join(OUT_DIR, `${key}.webp`), bytes);
     parts.push({ key, url: `assets/sprites/${key}.webp`, frames: part.frames });
     console.log(
-      `${key.padEnd(13)} ${String(part.frames).padStart(2)} frames ${result.frameWidth}x${result.frameHeight} ` +
+      `${key.padEnd(15)} ${String(part.frames).padStart(2)} frames ${result.frameWidth}x${result.frameHeight} ` +
         `-> sheet ${part.width}x${part.height}, ${Math.round(bytes.length / 1024)} KB`
     );
   }
@@ -261,9 +328,10 @@ export const BOAT_ANCHOR = ${JSON.stringify(BOAT_ANCHOR)};
 
 /**
  * One entry per animation. \`scale\` is design units to sheet pixels;
- * originX/originY (0..1) mark the anchor inside a frame (Thor's feet, a
- * draugr's waterline, Thor's spot on the deck); \`parts\` lists the sheet
- * files, in frame order.
+ * originX/originY mark the anchor as a fraction of a frame (Thor's feet, a
+ * draugr's waterline, Thor's spot on the deck), beyond 0..1 for a layer of
+ * the boat that doesn't reach Thor's spot; \`parts\` lists the sheet files,
+ * in frame order.
  */
 export const SPRITES = ${JSON.stringify(manifest, null, 2).replace(/"(\w+)":/g, '$1:').replace(/"/g, "'")};
 `

@@ -107,8 +107,8 @@ src/
   systems/Lightning.js       procedural lightning bolts
   systems/spriteSheets.js    loads sheets; joins animations split over several sheets
   entities/Draugr.js         enemy: wading walk, rune queue, death by lightning
-  entities/Longship.js       the boat; rocks, carrying Thor with it
-  entities/ShipWater.js      the sea against the hull, waves washing aboard, water on deck
+  entities/Longship.js       the boat, in layers; rocks, carrying Thor with it
+  entities/ShipWater.js      breaking waves, the pool on deck, splashes against the hull
   entities/Thor.js           the hero's animations: idle, three attacks, hurt, death
   ui/Hud.js                  lives, score and level
   config/levels.js           difficulty table and endless scaling
@@ -150,26 +150,36 @@ fills the screen. The design's own rain and lightning are switched off: they wou
 flash every 0.4 s and hide the lightning that marks the player's hits. The game draws
 rain with particles instead, and adds a faint, distant lightning strike every few seconds.
 
-**The rocking longship.** The boat is one still image inside a Phaser Container
-whose origin is the spot on the deck where Thor stands. Every frame the container
-tilts, bobs and squashes slightly, with the formula of the design's 12-frame loop at
-1.5 times its amplitude. Thor's sprite is a child of that container, so he moves
-exactly like the deck.
+**The rocking longship.** The boat lives in a Phaser Container whose origin is the
+spot on the deck where Thor stands. Every frame the container tilts, bobs and squashes
+slightly, with the formula of the design's 12-frame loop at 1.5 times its amplitude.
+Everything on board is a child of that container, so Thor and the water on deck move
+exactly like the boat. The design is exported in layers so the game's water fits in
+between them. From the bottom up:
 
-**The sea against the boat.** The boat sits in the water: the lower part of the hull's
-outer sides (and of the shields hanging there) is covered by water drawn with code.
-That water is a gradient that is see-through at the surface, dark below, and fades
-into the background sea, with foam where it meets the wood. The sea stays level while
-the boat rocks, so the side that dips sinks deeper. When the water reaches a gunwale,
-a wave washes over it: spray and foam pour onto the deck, and the water that came
-aboard sloshes toward the low side and slowly drains away.
+1. the boat itself,
+2. the pool on the deck (drawn with code),
+3. the bench nearest Thor, which stands out of the pool,
+4. the boat lit by lightning, faded in whenever distant lightning strikes,
+5. the waves breaking over the sides, and their drops,
+6. Thor.
+
+**Waves over the boat.** Three times in every rocking cycle a wave breaks over the
+boat: first the port side, then the bow, then starboard, on the design's schedule. The
+design's own frames show the sheet of water and its mist, picked to match the boat's
+pose. The drops are particles that fly into the boat and fall back. On deck, a pool of
+sea water sloshes around Thor's feet: its surface bobs and tilts against the boat's
+tilt, with glints and spreading ripples. Small splashes keep bursting where the hull
+meets the sea.
 
 **Sprite pipeline.** Each design draws every frame of an animation as SVG.
 `scripts/export-sprites.mjs` opens them in headless Chrome, sets design options where
-needed, and rasterizes the frames the game uses. It then crops them to a shared box, so
-an anchor (Thor's feet, a draugr's waterline) stays put, and packs them into sheets of
-at most 2048 px, splitting long animations over several sheets. The frame sizes and
-anchors go to `src/config/sprites.js`.
+needed, and rasterizes the frames the game uses. It can keep only part of a design (by
+CSS selector, or inside an outline), which is how the longship is split into layers.
+It then crops the frames to a shared box, so an anchor (Thor's feet, a draugr's
+waterline) stays put, and packs them into sheets of at most 2048 px, splitting long
+animations over several sheets. The frame sizes and anchors go to
+`src/config/sprites.js`.
 
 **One texture per draw call.** Phaser 4 normally batches sprites that use different
 textures and picks the right one in the shader with an exact float comparison. On

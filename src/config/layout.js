@@ -73,7 +73,7 @@ export const DEPTH = {
   background: 0,
   enemies: 100, // + y, so up to ~800
   ship: 1100, // the longship with Thor on deck
-  shipWater: 1110, // the sea against the hull and the spray over it
+  shipWater: 1110, // spray bursting against the hull
   rain: 1200,
   effects: 1300,
   runePanels: 1400, // + a fraction of y, so nearer queues sit on top

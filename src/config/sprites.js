@@ -6,9 +6,10 @@ export const BOAT_ANCHOR = [1300,1720];
 
 /**
  * One entry per animation. `scale` is design units to sheet pixels;
- * originX/originY (0..1) mark the anchor inside a frame (Thor's feet, a
- * draugr's waterline, Thor's spot on the deck); `parts` lists the sheet
- * files, in frame order.
+ * originX/originY mark the anchor as a fraction of a frame (Thor's feet, a
+ * draugr's waterline, Thor's spot on the deck), beyond 0..1 for a layer of
+ * the boat that doesn't reach Thor's spot; `parts` lists the sheet files,
+ * in frame order.
  */
 export const SPRITES = {
   boat: {
@@ -23,6 +24,54 @@ export const SPRITES = {
       {
         key: 'boat',
         url: 'assets/sprites/boat.webp',
+        frames: 1
+      }
+    ]
+  },
+  'boat-bench': {
+    scale: 0.32,
+    frameWidth: 628,
+    frameHeight: 16,
+    frames: 1,
+    spacing: 2,
+    originX: 0.5,
+    originY: 1.775,
+    parts: [
+      {
+        key: 'boat-bench',
+        url: 'assets/sprites/boat-bench.webp',
+        frames: 1
+      }
+    ]
+  },
+  'boat-waves': {
+    scale: 0.32,
+    frameWidth: 526,
+    frameHeight: 256,
+    frames: 12,
+    spacing: 2,
+    originX: 0.4087,
+    originY: 1.3609,
+    parts: [
+      {
+        key: 'boat-waves',
+        url: 'assets/sprites/boat-waves.webp',
+        frames: 12
+      }
+    ]
+  },
+  'boat-lightning': {
+    scale: 0.16,
+    frameWidth: 640,
+    frameHeight: 290,
+    frames: 1,
+    spacing: 2,
+    originX: 0.5,
+    originY: 0.8041,
+    parts: [
+      {
+        key: 'boat-lightning',
+        url: 'assets/sprites/boat-lightning.webp',
         frames: 1
       }
     ]

@@ -72,7 +72,7 @@ export class GameScene extends Phaser.Scene {
 
     // Thor rides inside the longship's container, so he rocks with the deck.
     this.longship = new Longship(this);
-    // The sea against the hull, waves washing aboard and water on the deck.
+    // Waves breaking over the boat, the pool on deck and splashes against the hull.
     this.shipWater = new ShipWater(this, this.longship);
     this.thor = new Thor(this);
     this.longship.carry(this.thor.sprite);
@@ -166,8 +166,9 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * Now and then lightning strikes the sea far away, with a faint flash of
-   * the sky. It is thinner and dimmer than the player's strikes, and it never
-   * touches a draugr, so it can't be mistaken for a hit.
+   * the sky that also lights up the longship. It is thinner and dimmer than
+   * the player's strikes, and it never touches a draugr, so it can't be
+   * mistaken for a hit.
    */
   scheduleAmbientLightning() {
     this.time.delayedCall(Phaser.Math.Between(AMBIENT_LIGHTNING_MS.min, AMBIENT_LIGHTNING_MS.max), () => {
@@ -180,6 +181,7 @@ export class GameScene extends Phaser.Scene {
       if (!this.reducedMotion) {
         this.skyFlash.setAlpha(0.14);
         this.tweens.add({ targets: this.skyFlash, alpha: 0, duration: 450, ease: 'Quad.easeOut' });
+        this.longship.lightUp();
       }
       this.scheduleAmbientLightning();
     });

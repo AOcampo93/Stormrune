@@ -1,71 +1,74 @@
+import Phaser from 'phaser';
 import { HULL, DEPTH } from '../config/layout.js';
-
-/**
- * How high the sea reaches up the outside of the hull when the boat is at
- * rest, measured across the hull's side: 0 is the gunwale (top edge), 1 is
- * where the design's hull ends. Lower numbers mean a higher sea.
- */
-const REST_LEVEL = 0.6;
-
-/** How strongly a side dipping (or rising) as the boat rocks moves the water on it. */
-const DIP_GAIN = 4;
-
-/** Waves run along the hull in step with the background sea's 1.6 s loop. */
-const WAVE_PERIOD_MS = 1600;
-
-/** Water this close to the gunwale washes over it into the boat. */
-const OVERFLOW_LEVEL = 0.15;
-
-/** A side can't take on water again sooner than this (ms). */
-const OVERFLOW_COOLDOWN_MS = 650;
+import { SPRITES } from '../config/sprites.js';
+import { firstTexture, sheetFrames } from '../systems/spriteSheets.js';
+import { DESIGN_FRAMES } from './Longship.js';
 
 /** Random small splashes against the hull, every this many ms. */
 const HULL_SPLASH_MS = { min: 220, max: 600 };
 
-/** Water on the deck drains back out at this rate (volume per ms). */
-const DRAIN_PER_MS = 0.0005;
-
-
-/** Points sampled along each side of the hull. */
-const SAMPLES = 32;
-
-const SIDES = ['port', 'starboard'];
-
-/** From the hull toward the middle of the deck, along screen x. */
+/** From the hull toward the middle of the deck, along x. */
 const INWARD = { port: 1, starboard: -1 };
 
 /**
- * The water against the hull, from its surface down: a lighter, slightly
- * see-through surface, dark water below, then a fade into the background
- * sea past the hull's edge so there is no hard seam. `v` is measured like
- * the levels above (0 at the gunwale, 1 at the design's hull edge); the
- * first two bands follow the water's surface.
+ * Waves breaking over the gunwales, from the "Bote idle" design. In every
+ * rocking cycle one breaks over the port side, then one over the bow (on
+ * both sides at once), then one over starboard. `y` is where it hits the
+ * gunwale (design units) and `strength` how hard it breaks in each of the
+ * design's 12 frames.
  */
-const DEPTH_BANDS = [
-  { v: 0, color: 0x23506f, alpha: 0.8 }, // the surface
-  { v: 0.2, color: 0x0f2740, alpha: 0.94 }, // just below it
-  { v: 1, color: 0x0a1729, alpha: 0.94 }, // the hull's edge
-  { v: 1.2, color: 0x0a1729, alpha: 0 } // faded into the sea
+const BREAKING_WAVES = [
+  { side: 'port', y: 1240, strength: [0, 0.45, 1, 0.75, 0.4, 0, 0, 0, 0, 0, 0, 0] },
+  { side: 'port', y: 980, strength: [0, 0, 0, 0, 0.4, 0.8, 0.48, 0, 0, 0, 0, 0] },
+  { side: 'starboard', y: 980, strength: [0, 0, 0, 0, 0.4, 0.8, 0.48, 0, 0, 0, 0, 0] },
+  { side: 'starboard', y: 1420, strength: [0, 0, 0, 0, 0, 0, 0, 0.45, 1, 0.75, 0.4, 0] }
 ];
 
-const FOAM = 0xe6f6ff;
-const DECK_WATER = 0xa6dcff;
+/** Drops thrown into the boat per second by a wave breaking at full strength. */
+const DROPS_PER_SECOND = 150;
+
+/** Gravity pulling the drops back down (px/s²). */
+const DROP_GRAVITY = 1300;
+
+/**
+ * The pool of sea water on the deck, from the design (design units): its
+ * surface sits around POOL_LEVEL, bobs with the rocking and tilts the other
+ * way from the boat, so the water sloshes from side to side.
+ */
+const POOL_LEVEL = 1560;
+const POOL_BOB = 14;
+const POOL_SLOSH = 9;
+const POOL_TOP = { color: 0x1d3a56, alpha: 0.75 };
+const POOL_BOTTOM = { color: 0x081627, alpha: 0.9 };
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const along = ([[x0, y0], [x1, y1]], u) => [lerp(x0, x1, u), lerp(y0, y1, u)];
+/** How far along a hull line (0 at the bow) a design y is. */
+const uAt = ([[, y0], [, y1]], y) => (y - y0) / (y1 - y0);
+/** The x of a hull line at a design y. */
+const xAt = (line, y) => along(line, uAt(line, y))[0];
+
+/** A color between two others, like a gradient stop. */
+function mix(from, to, t) {
+  const channel = (shift) => Math.round(lerp((from >> shift) & 0xff, (to >> shift) & 0xff, t));
+  return (channel(16) << 16) | (channel(8) << 8) | channel(0);
+}
+
+// The deck is a triangle between the two deck edges: its apex at the bow,
+// widening by DECK_SPREAD design units on each side per unit down.
+const [[DECK_X, DECK_APEX_Y], [DECK_LEFT_X, DECK_BOTTOM_Y]] = HULL.deckEdge.port;
+const DECK_SPREAD = (DECK_X - DECK_LEFT_X) / (DECK_BOTTOM_Y - DECK_APEX_Y);
+const onDeck = (x, y) => y >= DECK_APEX_Y && Math.abs(x - DECK_X) <= (y - DECK_APEX_Y) * DECK_SPREAD;
 
 /**
- * The stormy sea against the longship, drawn with code over the boat image.
+ * The sea washing over and against the longship, drawn with the boat
+ * design's own wave frames and with code.
  *
- * - The sea level: water covers the lower part of the hull's outer sides
- *   (and the bottoms of the shields hanging there), with foam where it meets
- *   the wood. The sea stays level while the boat rocks, so the side that
- *   dips sinks deeper into it.
- * - Waves over the gunwale: when the water comes close enough to a side's
- *   top edge, a wave washes over it, throwing spray into the boat.
- * - Water on the deck: what came aboard sloshes toward the low side and
- *   slowly drains away.
- * - Small splashes keep bursting against the hull at random.
+ * - Breaking waves: three times per rocking cycle (port side, bow,
+ *   starboard) a wave breaks over the gunwale. The design's frames show the
+ *   sheet of water and its mist, and drops fly into the boat as particles.
+ * - Water on the deck: a pool sloshing around Thor's feet.
+ * - Small splashes keep bursting where the hull meets the sea.
  */
 export class ShipWater {
   /**
@@ -75,34 +78,46 @@ export class ShipWater {
   constructor(scene, longship) {
     this.longship = longship;
     this.elapsed = 0;
-
-    // The sea against the hull lives in screen space: the sea doesn't rock.
-    this.hullWater = scene.add.graphics().setDepth(DEPTH.shipWater);
+    this.nextHullSplash = 0;
+    /** Waves that have broken over the gunwales so far (for "?debug" checks). */
+    this.wavesAboard = 0;
 
     // Water on the deck is part of the boat, so it rocks with it.
     this.deckWater = scene.add.graphics();
     longship.addToDeck(this.deckWater);
 
-    /** How much water lies on each side of the deck (0..1). */
-    this.volume = { port: 0.1, starboard: 0.1 };
-    this.lastOverflow = { port: -Infinity, starboard: -Infinity };
-    this.nextHullSplash = 0;
-    /** Waves that have washed aboard so far (for "?debug" checks). */
-    this.wavesAboard = 0;
+    // The design's breaking waves, one frame per design frame.
+    const { originX, originY } = SPRITES['boat-waves'];
+    this.waveFrames = sheetFrames(scene.anims, 'boat-waves');
+    this.waveSprite = scene.add.sprite(0, 0, firstTexture('boat-waves')).setOrigin(originX, originY);
+    longship.addOverBoat(this.waveSprite);
+    this.shownFrame = -1;
 
-    // Spray thrown over the gunwale, aimed into the boat on each side.
-    this.overflowSpray = {
-      port: scene.add.particles(0, 0, 'spark', sprayConfig({ min: -85, max: -30 }, { min: 200, max: 430 }, 1.35)),
-      starboard: scene.add.particles(0, 0, 'spark', sprayConfig({ min: -150, max: -95 }, { min: 200, max: 430 }, 1.35))
-    };
-    // Foam pouring over the gunwale and sliding onto the deck, per side.
-    this.spillFoam = {
-      port: scene.add.particles(0, 0, 'puff', foamConfig({ min: -35, max: 15 })),
-      starboard: scene.add.particles(0, 0, 'puff', foamConfig({ min: 165, max: 215 }))
-    };
+    // Each wave throws its drops from its own emitter, aimed into the boat.
+    this.waves = BREAKING_WAVES.map((wave) => {
+      const drops = scene.add.particles(0, 0, 'spark', dropConfig(wave, SPRITES.boat.scale));
+      longship.addOverBoat(drops);
+      return {
+        ...wave,
+        drops,
+        size: designSize(wave),
+        gunwaleX: xAt(HULL.gunwale[wave.side], wave.y),
+        pendingDrops: 0
+      };
+    });
+
     // Droplets bursting straight up against the hull.
-    this.hullSpray = scene.add.particles(0, 0, 'spark', sprayConfig({ min: -115, max: -65 }, { min: 90, max: 230 }));
-    // A soft cloud of mist with every splash.
+    this.hullSpray = scene.add.particles(0, 0, 'spark', {
+      emitting: false,
+      speed: { min: 90, max: 230 },
+      angle: { min: -115, max: -65 },
+      lifespan: { min: 450, max: 900 },
+      gravityY: 950,
+      scale: { start: 0.9, end: 0.3 },
+      alpha: { start: 0.95, end: 0 },
+      tint: [0xffffff, 0xd9f2ff, 0xa8dcff]
+    });
+    // A soft cloud of mist with some of them.
     this.mist = scene.add.particles(0, 0, 'puff', {
       emitting: false,
       speed: { min: 20, max: 80 },
@@ -112,143 +127,52 @@ export class ShipWater {
       alpha: { start: 0.45, end: 0 },
       tint: 0xdff3ff
     });
-    const emitters = [this.overflowSpray.port, this.overflowSpray.starboard, this.spillFoam.port, this.spillFoam.starboard];
-    for (const emitter of [...emitters, this.hullSpray, this.mist]) {
-      emitter.setDepth(DEPTH.shipWater + 1);
-    }
+    this.hullSpray.setDepth(DEPTH.shipWater);
+    this.mist.setDepth(DEPTH.shipWater);
   }
 
   update(delta) {
     this.elapsed += delta;
-    this.hullWater.clear();
-
-    for (const side of SIDES) {
-      const waterline = this.waterlineAlong(side);
-      this.drawSea(waterline);
-      this.checkOverflow(side, waterline);
-    }
-
+    this.breakWaves();
+    this.throwDrops(delta);
     this.splashAgainstHull();
-    this.drawDeckWater(delta);
+
+    this.drawPool();
+  }
+
+  /** Shows the design's breaking waves for the boat's current pose. */
+  breakWaves() {
+    const frame = this.longship.designFrame;
+    if (frame === this.shownFrame) {
+      return;
+    }
+    this.shownFrame = frame;
+    const { key, frame: index } = this.waveFrames[frame];
+    this.waveSprite.setTexture(key, index);
+
+    const previous = (frame + DESIGN_FRAMES - 1) % DESIGN_FRAMES;
+    this.wavesAboard += this.waves.filter((wave) => wave.strength[frame] > 0 && wave.strength[previous] === 0).length;
   }
 
   /**
-   * Where the sea meets one side of the hull right now, sampled from the bow
-   * down past the stern. Each sample keeps the current gunwale and hull-edge
-   * points, so any depth across the side can be placed with at(v).
+   * While a wave's frames are showing, its drops keep flying into the boat,
+   * more the harder it breaks. They leave from anywhere along the top of the
+   * hull where it hits, mostly just outside it, like the design's sheet of
+   * water.
    */
-  waterlineAlong(side) {
-    const time = this.elapsed / WAVE_PERIOD_MS;
-    const samples = [];
-
-    for (let i = 0; i <= SAMPLES; i++) {
-      const u = i / SAMPLES; // 0 at the bow, 1 well below the stern
-      const gunwale = this.longship.toWorld(...along(HULL.gunwale[side], u));
-      const hullEdge = this.longship.toWorld(...along(HULL.hullBottom[side], u));
-      const gunwaleAtRest = this.longship.toWorldAtRest(...along(HULL.gunwale[side], u));
-      const hullEdgeAtRest = this.longship.toWorldAtRest(...along(HULL.hullBottom[side], u));
-
-      // How far this part of the side has dipped below its resting place,
-      // compared with how wide the hull's side is here (perspective).
-      const sideWidth = Math.hypot(hullEdgeAtRest.x - gunwaleAtRest.x, hullEdgeAtRest.y - gunwaleAtRest.y) || 1;
-      const dip = (gunwale.y - gunwaleAtRest.y) / sideWidth;
-
-      // Two waves of different length run along the hull, in step with the sea.
-      const wave =
-        0.08 * Math.sin(Math.PI * 2 * (3.2 * u - time)) +
-        0.04 * Math.sin(Math.PI * 2 * (7.5 * u + time * 1.8) + (side === 'port' ? 0 : 2));
-
-      const level = REST_LEVEL - dip * DIP_GAIN + wave;
-      const at = (v) => ({ x: lerp(gunwale.x, hullEdge.x, v), y: lerp(gunwale.y, hullEdge.y, v) });
-      samples.push({ u, level, surface: Math.max(0, level), at, gunwale, sideWidth });
-    }
-    return samples;
-  }
-
-  /** The water body as gradient bands, then the foam on its surface. */
-  drawSea(waterline) {
-    const g = this.hullWater;
-
-    // Where a band edge sits at a sample: the first edges follow the surface.
-    const edgeV = (band, sample) =>
-      band.v >= 1 ? band.v : Math.min(0.97, sample.surface + band.v * (1 - sample.surface));
-
-    for (let b = 0; b < DEPTH_BANDS.length - 1; b++) {
-      const top = DEPTH_BANDS[b];
-      const bottom = DEPTH_BANDS[b + 1];
-      for (let i = 0; i < waterline.length - 1; i++) {
-        const s0 = waterline[i];
-        const s1 = waterline[i + 1];
-        const a0 = s0.at(edgeV(top, s0));
-        const a1 = s1.at(edgeV(top, s1));
-        const b0 = s0.at(edgeV(bottom, s0));
-        const b1 = s1.at(edgeV(bottom, s1));
-        // Each quad as two triangles; per-vertex colors make the gradient.
-        g.fillGradientStyle(top.color, top.color, bottom.color, bottom.color, top.alpha, top.alpha, bottom.alpha, bottom.alpha);
-        g.fillTriangle(a0.x, a0.y, a1.x, a1.y, b0.x, b0.y);
-        g.fillGradientStyle(bottom.color, bottom.color, top.color, top.color, bottom.alpha, bottom.alpha, top.alpha, top.alpha);
-        g.fillTriangle(b1.x, b1.y, b0.x, b0.y, a1.x, a1.y);
+  throwDrops(delta) {
+    const frame = this.longship.designFrame;
+    for (const wave of this.waves) {
+      wave.pendingDrops += (DROPS_PER_SECOND * wave.strength[frame] * delta) / 1000;
+      for (; wave.pendingDrops >= 1; wave.pendingDrops -= 1) {
+        const across = Phaser.Math.FloatBetween(-60, 10) * wave.size; // design units, + is inward
+        const point = this.longship.toLocal(
+          wave.gunwaleX + INWARD[wave.side] * across,
+          wave.y + Phaser.Math.FloatBetween(-10, 10) * wave.size
+        );
+        wave.drops.emitParticleAt(point.x, point.y, 1);
       }
     }
-
-    // Toward the bow the hull's side narrows to a few pixels, where foam would
-    // just outline the gunwale; it fades in as the side widens.
-    const presence = (s) => Math.min(1, Math.max(0, (s.sideWidth - 12) / 40));
-
-    // Faint streaks under the surface, drifting with the waves.
-    for (const [offset, alpha] of [[0.07, 0.22], [0.16, 0.12]]) {
-      for (let i = 0; i < waterline.length - 1; i++) {
-        const s0 = waterline[i];
-        const s1 = waterline[i + 1];
-        const drift = (s, k) => Math.min(0.97, s.surface + offset + 0.02 * Math.sin(this.elapsed / 260 + k * 0.9));
-        const p0 = s0.at(drift(s0, i));
-        const p1 = s1.at(drift(s1, i + 1));
-        g.lineStyle(1.5, FOAM, alpha * presence(s0));
-        g.lineBetween(p0.x, p0.y, p1.x, p1.y);
-      }
-    }
-
-    // Foam where the sea meets the wood: uneven thickness, plus bubbles.
-    for (let i = 0; i < waterline.length - 1; i++) {
-      const p0 = waterline[i].at(waterline[i].surface);
-      const p1 = waterline[i + 1].at(waterline[i + 1].surface);
-      g.lineStyle(2 + 1.6 * (0.5 + 0.5 * Math.sin(this.elapsed / 200 + i * 1.3)), FOAM, 0.85 * presence(waterline[i]));
-      g.lineBetween(p0.x, p0.y, p1.x, p1.y);
-    }
-    waterline.forEach((s, i) => {
-      if (i % 2 === 0 && presence(s) > 0) {
-        g.fillStyle(FOAM, 0.7 * presence(s));
-        const top = s.at(s.surface);
-        const wobble = Math.sin(this.elapsed / 180 + i * 1.7);
-        g.fillCircle(top.x + wobble * 3, top.y + 2 + wobble, 1.2 + (s.sideWidth / 60) * (0.6 + 0.4 * wobble));
-      }
-    });
-  }
-
-  /** A wave reaching the gunwale washes over it: spray into the boat. */
-  checkOverflow(side, waterline) {
-    // Only the stretch of hull that is on screen and near enough to matter.
-    const visible = waterline.filter(({ u }) => u > 0.3 && u < 0.9);
-    const lowest = visible.reduce((a, b) => (b.level < a.level ? b : a));
-    if (lowest.level > OVERFLOW_LEVEL || this.elapsed - this.lastOverflow[side] < OVERFLOW_COOLDOWN_MS) {
-      return;
-    }
-    this.lastOverflow[side] = this.elapsed;
-    this.wavesAboard += 1;
-
-    // The deeper the gunwale dips, the bigger the wave that comes aboard.
-    const strength = Math.min(1, (OVERFLOW_LEVEL - lowest.level) / 0.25 + 0.3);
-    const { x, y } = lowest.gunwale;
-    this.overflowSpray[side].explode(Math.round(22 + 30 * strength), x, y);
-    this.mist.explode(4 + Math.round(3 * strength), x + INWARD[side] * 12, y - 8);
-
-    // A sheet of foam pours over a stretch of the gunwale around that point.
-    const reach = 0.05 + 0.05 * strength;
-    for (let k = 0; k <= 6; k++) {
-      const point = this.longship.toWorld(...along(HULL.gunwale[side], lowest.u - reach + (2 * reach * k) / 6));
-      this.spillFoam[side].explode(2, point.x, point.y);
-    }
-    this.volume[side] = Math.min(1, this.volume[side] + 0.45 * strength);
   }
 
   /** Small splashes bursting up against the hull every so often. */
@@ -258,13 +182,10 @@ export class ShipWater {
     }
     this.nextHullSplash = this.elapsed + HULL_SPLASH_MS.min + Math.random() * (HULL_SPLASH_MS.max - HULL_SPLASH_MS.min);
 
+    // Somewhere on screen along the hull's outer edge, where it meets the sea.
     const side = Math.random() < 0.5 ? 'port' : 'starboard';
-    const u = 0.35 + Math.random() * 0.55;
-    const [gx, gy] = along(HULL.gunwale[side], u);
-    const [bx, by] = along(HULL.hullBottom[side], u);
-    // Somewhere around the water's edge on that part of the hull.
-    const v = REST_LEVEL + (Math.random() - 0.5) * 0.2;
-    const { x, y } = this.longship.toWorld(lerp(gx, bx, v), lerp(gy, by, v));
+    const u = 0.3 + Math.random() * 0.42;
+    const { x, y } = this.longship.toWorld(...along(HULL.hullBottom[side], u));
     this.hullSpray.explode(4 + Math.floor(Math.random() * 6), x, y);
     if (Math.random() < 0.4) {
       this.mist.explode(1, x, y);
@@ -272,86 +193,133 @@ export class ShipWater {
   }
 
   /**
-   * Water on the deck, along the foot of each side's inner wall. It flows
-   * toward whichever side is lower and drains away slowly.
+   * The pool on the deck, from the design: dark water filling the deck from
+   * its surface down, a rough bright edge, glints and spreading ripples.
+   * Everything is in design units, turned into the container's space.
    */
-  drawDeckWater(delta) {
-    const tilt = this.longship.container.rotation; // > 0: starboard is lower
+  drawPool() {
     const g = this.deckWater;
     g.clear();
+    const local = (x, y) => this.longship.toLocal(x, y);
+    const phase = this.longship.phase;
+    const level = POOL_LEVEL - POOL_BOB * Math.sin(phase + 0.6);
+    const slope = Math.tan(Phaser.Math.DegToRad(-this.longship.tiltDegrees * POOL_SLOSH)) * 0.6;
+    const surface = (x) => level + (x - DECK_X) * slope + 6 * Math.sin(x * 0.012 + phase * 2);
 
-    for (const side of SIDES) {
-      const lean = side === 'port' ? -tilt : tilt;
-      const target = Math.max(0, 0.08 + lean * 9);
-      // Rise quickly toward the slosh, drain slowly.
-      const current = this.volume[side];
-      this.volume[side] =
-        current < target ? current + (target - current) * Math.min(1, delta / 250) : Math.max(target, current - DRAIN_PER_MS * delta);
+    // The water's surface across the deck; where it is higher than the
+    // deck's edge, the pool reaches that edge.
+    const steps = 48;
+    const left = DECK_LEFT_X;
+    const width = 2 * (DECK_X - DECK_LEFT_X);
+    const columns = Array.from({ length: steps + 1 }, (_, i) => {
+      const x = left + (width * i) / steps;
+      const deckEdgeY = DECK_APEX_Y + Math.abs(x - DECK_X) / DECK_SPREAD;
+      return { x, y: Math.max(surface(x), deckEdgeY), wet: surface(x) >= deckEdgeY };
+    });
 
-      const volume = this.volume[side];
-      if (volume < 0.02) {
+    // The body, with the design's gradient from its surface to the deck's end.
+    const top = Math.min(...columns.map((c) => surface(c.x)));
+    const shade = (y) => {
+      const t = Phaser.Math.Clamp((y - top) / (DECK_BOTTOM_Y - top), 0, 1);
+      return { color: mix(POOL_TOP.color, POOL_BOTTOM.color, t), alpha: lerp(POOL_TOP.alpha, POOL_BOTTOM.alpha, t) };
+    };
+    const bottom = shade(DECK_BOTTOM_Y);
+    for (let i = 0; i < steps; i++) {
+      const c0 = columns[i];
+      const c1 = columns[i + 1];
+      if (c0.y >= DECK_BOTTOM_Y && c1.y >= DECK_BOTTOM_Y) {
         continue;
       }
+      const s0 = shade(c0.y);
+      const s1 = shade(c1.y);
+      const a0 = local(c0.x, c0.y);
+      const a1 = local(c1.x, c1.y);
+      const b0 = local(c0.x, DECK_BOTTOM_Y);
+      const b1 = local(c1.x, DECK_BOTTOM_Y);
+      g.fillGradientStyle(s0.color, s1.color, bottom.color, bottom.color, s0.alpha, s1.alpha, bottom.alpha, bottom.alpha);
+      g.fillTriangle(a0.x, a0.y, a1.x, a1.y, b0.x, b0.y);
+      g.fillGradientStyle(bottom.color, bottom.color, s1.color, s1.color, bottom.alpha, bottom.alpha, s1.alpha, s1.alpha);
+      g.fillTriangle(b1.x, b1.y, b0.x, b0.y, a1.x, a1.y);
+    }
 
-      // A sheet of water hugging the inside of the hull, nearer the stern,
-      // that fades out toward the middle of the deck: deep at the side, thin
-      // inside. It starts a little inside the gunwale, where the deck planks
-      // meet the side in this perspective.
-      const edge = [];
-      const inner = [];
-      for (let i = 0; i <= 16; i++) {
-        const u = 0.5 + (0.5 * i) / 16;
-        const [gx, gy] = along(HULL.gunwale[side], u);
-        const [dx, dy] = along(HULL.deckEdge[side], u);
-        const [ex, ey] = [lerp(gx, dx, 0.3), lerp(gy, dy, 0.3)];
-        const ripple = 1 + 0.15 * Math.sin(this.elapsed / 260 + i * 1.1);
-        const width = volume * 260 * u * ripple;
-        edge.push(this.longship.toLocal(ex, ey));
-        inner.push(this.longship.toLocal(ex + INWARD[side] * width, ey));
-      }
+    // Glints drifting across the water below the surface.
+    g.lineStyle(1, 0x4c6c97, 0.45);
+    for (let j = 0; j < 7; j++) {
+      const y = level + 60 + j * 60 + 10 * Math.sin(phase + j);
+      const halfWidth = 120 + j * 40;
+      const x = DECK_X + 220 * Math.sin(j * 2.1 + phase);
+      const curve = new Phaser.Curves.QuadraticBezier(
+        new Phaser.Math.Vector2(x - halfWidth, y),
+        new Phaser.Math.Vector2(x, y - 6),
+        new Phaser.Math.Vector2(x + halfWidth, y + 2)
+      );
+      this.strokeWet(curve.getPoints(10), surface, local);
+    }
 
-      const alpha = Math.min(0.55, 0.2 + 0.4 * volume);
-      for (let i = 0; i < edge.length - 1; i++) {
-        g.fillGradientStyle(DECK_WATER, DECK_WATER, DECK_WATER, DECK_WATER, alpha, alpha, 0, 0);
-        g.fillTriangle(edge[i].x, edge[i].y, edge[i + 1].x, edge[i + 1].y, inner[i].x, inner[i].y);
-        g.fillGradientStyle(DECK_WATER, DECK_WATER, DECK_WATER, DECK_WATER, 0, 0, alpha, alpha);
-        g.fillTriangle(inner[i + 1].x, inner[i + 1].y, inner[i].x, inner[i].y, edge[i + 1].x, edge[i + 1].y);
-      }
-      // Glints on the moving water, broken into short dashes.
-      g.lineStyle(1.5, 0xffffff, 0.15 + 0.3 * volume);
-      for (let i = 0; i < inner.length - 1; i += 2) {
-        const mid = (p, q) => ({ x: lerp(p.x, q.x, 0.55), y: lerp(p.y, q.y, 0.55) });
-        const a = mid(edge[i], inner[i]);
-        const b = mid(edge[i + 1], inner[i + 1]);
-        g.lineBetween(a.x, a.y, b.x, b.y);
+    // Rings spreading out on the water, fading as they grow.
+    for (let j = 0; j < 3; j++) {
+      const grow = (phase / (Math.PI * 2) + j / 3) % 1;
+      const radius = 40 + grow * 160;
+      const center = local(DECK_X + (j - 1) * 260, level + 200 + j * 90);
+      g.lineStyle(1, 0x5f7da7, 0.4 * (1 - grow));
+      g.strokeEllipse(center.x, center.y, 2 * radius * SPRITES.boat.scale, 0.5 * radius * SPRITES.boat.scale);
+    }
+
+    // The bright, ragged edge where the surface meets the deck.
+    const edge = columns.filter((c) => c.wet).map((c) => ({ x: c.x, y: c.y + 4 * Math.sin(c.x * 0.21) + 3 * Math.sin(c.x * 0.53 + 1) }));
+    g.lineStyle(1.3, 0x7c96ba, 0.55);
+    g.strokePoints(edge.map((p) => local(p.x, p.y)));
+  }
+
+  /** Strokes the parts of a line (design units) that lie in the pool. */
+  strokeWet(points, surface, local) {
+    let run = [];
+    for (const point of [...points, null]) {
+      if (point && onDeck(point.x, point.y) && point.y > surface(point.x)) {
+        run.push(local(point.x, point.y));
+      } else {
+        if (run.length > 1) this.deckWater.strokePoints(run);
+        run = [];
       }
     }
   }
 }
 
-/** Foam: soft white clouds that slide in over the gunwale, swell and fade. */
-function foamConfig(angle) {
-  return {
-    emitting: false,
-    speed: { min: 50, max: 140 },
-    angle,
-    lifespan: { min: 380, max: 650 },
-    scale: { start: 0.9, end: 2.4 },
-    alpha: { start: 0.75, end: 0 },
-    tint: [0xffffff, 0xe3f5ff]
-  };
+/**
+ * How big the design draws a wave breaking at this point of the hull:
+ * nearer the stern (larger y) is nearer the viewer, so bigger.
+ */
+function designSize(wave) {
+  return 0.7 + (wave.y - 900) / 600;
 }
 
-/** Water droplets: fly out, fall back with gravity and fade. */
-function sprayConfig(angle, speed, size = 1) {
+/**
+ * Drops thrown into the boat by one breaking wave, sized from the design:
+ * nearer the stern the waves are bigger, so the drops fly higher and
+ * farther, and look bigger. Speeds are worked out so a drop peaks at the
+ * height of the design's sheet of water and lands within its reach.
+ */
+function dropConfig(wave, scale) {
+  const size = designSize(wave);
+  const peak = Math.max(...wave.strength);
+  const height = (180 + 260 * peak) * size * scale; // px
+  const reach = (220 + 160 * peak) * size * scale;
+  const rise = (fraction) => Math.sqrt(2 * DROP_GRAVITY * height * fraction);
+  const flight = (2 * rise(0.85)) / DROP_GRAVITY; // seconds up and back down
+  const inward = INWARD[wave.side];
+  const across = [(0.4 * reach) / flight, (1.5 * reach) / flight].map((speed) => speed * inward);
   return {
     emitting: false,
-    speed,
-    angle,
-    lifespan: { min: 450, max: 900 },
-    gravityY: 950,
-    scale: { start: 0.9 * size, end: 0.3 * size },
-    alpha: { start: 0.95, end: 0 },
+    speedX: { min: Math.min(...across), max: Math.max(...across) },
+    speedY: { min: -rise(1.1), max: -rise(0.6) },
+    gravityY: DROP_GRAVITY,
+    lifespan: { min: flight * 800, max: flight * 1200 },
+    // Each drop gets its own size, then shrinks as it flies.
+    scale: {
+      onEmit: (drop) => (drop.dropScale = 0.8 * size * Phaser.Math.FloatBetween(0.35, 1)),
+      onUpdate: (drop, key, t) => drop.dropScale * (1 - 0.6 * t)
+    },
+    alpha: { start: 0.95, end: 0, ease: 'Quad.easeIn' },
     tint: [0xffffff, 0xd9f2ff, 0xa8dcff]
   };
 }
