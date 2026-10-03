@@ -62,6 +62,7 @@ export class GameScene extends Phaser.Scene {
     this.kills = 0; // draugar destroyed in the current level
     this.isLevelTransition = true; // true while the LEVEL banner shows
     this.isGameOver = false;
+    this.pausedForPortrait = false;
     this.spawnTimer = null;
 
     // Counters for "?debug" checks.
@@ -524,6 +525,9 @@ export class GameScene extends Phaser.Scene {
     // physical screen, but it is a useful second trigger on phones.
     this.portraitQuery.addEventListener('change', onOrientationChange);
     this.scale.on(Phaser.Scale.Events.ORIENTATION_CHANGE, onOrientationChange);
+    // Any resize checks again too, in case a phone's orientation events
+    // arrived out of order and left the game paused in landscape.
+    this.scale.on(Phaser.Scale.Events.RESIZE, onOrientationChange);
 
     // Pausing from inside create() does not stick: Phaser marks the scene as
     // running right after create() returns. Apply the starting state once the
@@ -535,16 +539,23 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.portraitQuery.removeEventListener('change', onOrientationChange);
       this.scale.off(Phaser.Scale.Events.ORIENTATION_CHANGE, onOrientationChange);
+      this.scale.off(Phaser.Scale.Events.RESIZE, onOrientationChange);
     });
   }
 
   /** Pause in portrait, resume in landscape. Safe to call any number of times. */
   syncPause() {
+    // Phaser queues pause and resume until its next step, and a phone
+    // turning sends several resize events before then, so remember what
+    // was asked for rather than ask again.
     const portrait = this.portraitQuery.matches;
-
-    if (portrait && !this.scene.isPaused()) {
+    if (portrait === this.pausedForPortrait) {
+      return;
+    }
+    this.pausedForPortrait = portrait;
+    if (portrait) {
       this.scene.pause();
-    } else if (!portrait && this.scene.isPaused()) {
+    } else {
       this.scene.resume();
     }
   }

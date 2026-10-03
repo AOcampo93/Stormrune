@@ -19,6 +19,12 @@ const FADE_MS = 300;
 const RESTING_PATH = 24;
 
 /**
+ * No rune takes this long to draw (ms). A stroke still "in progress" after
+ * that is stuck (its finger's release was lost), and a new touch replaces it.
+ */
+const STUCK_STROKE_MS = 3000;
+
+/**
  * StrokeInput turns pointer input (mouse or touch) into strokes: lists of
  * {x, y} points in game coordinates. While the player draws it renders a
  * glowing trail. When the pointer lifts, it hands the finished stroke to a
@@ -42,6 +48,9 @@ export class StrokeInput {
 
     /** Points of the stroke being drawn right now. */
     this.points = [];
+
+    /** When the stroke being drawn started (performance.now()). */
+    this.startedAt = 0;
 
     /** Released strokes that are still fading out: { points, alpha }. */
     this.fading = [];
@@ -92,7 +101,8 @@ export class StrokeInput {
 
     if (this.pointer) {
       // Another finger is really drawing: ignore this one.
-      if (this.pointer !== pointer && this.pointer.isDown && this.pathLength() >= RESTING_PATH) {
+      const drawing = this.pathLength() >= RESTING_PATH && performance.now() - this.startedAt < STUCK_STROKE_MS;
+      if (this.pointer !== pointer && this.pointer.isDown && drawing) {
         return;
       }
       // Otherwise the first finger is only resting on the screen, or we
@@ -102,6 +112,7 @@ export class StrokeInput {
     }
 
     this.pointer = pointer;
+    this.startedAt = performance.now();
     this.points = [{ x: pointer.x, y: pointer.y }];
     this.redraw();
   }

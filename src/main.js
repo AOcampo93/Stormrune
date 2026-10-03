@@ -7,6 +7,8 @@ import { GameOverScene } from './scenes/GameOverScene.js';
 import { GAME_WIDTH, GAME_HEIGHT } from './config/layout.js';
 import { PALETTE } from './config/palette.js';
 import { releaseStaleTouches } from './systems/staleTouches.js';
+import { keepGameInView } from './systems/viewport.js';
+import { reloadIfGraphicsStayLost } from './systems/recovery.js';
 import { tidyAddressBar } from './systems/updates.js';
 
 // The typefaces of the menu screens and the HUD, bundled with the game
@@ -61,6 +63,8 @@ const config = {
 
 const game = new Phaser.Game(config);
 releaseStaleTouches(game);
+keepGameInView(game);
+reloadIfGraphicsStayLost(game);
 
 // The registry is shared by every scene, so they can all check the flag.
 game.registry.set('debug', DEBUG);

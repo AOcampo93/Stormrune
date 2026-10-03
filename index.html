@@ -28,6 +28,9 @@
         overflow: hidden;
         overscroll-behavior: none;
         background: #0b1a2e;
+        /* No panning or pinch zoom anywhere on the page: on a phone, a thumb
+           on the dark bars beside the game must not zoom or move it. */
+        touch-action: none;
       }
 
       /* The Phaser canvas is created inside this element. Drawing runes must
@@ -35,7 +38,13 @@
          is switched off here. */
       #game {
         position: fixed;
-        inset: 0;
+        top: 0;
+        left: 0;
+        right: 0;
+        /* The visible height: on phones it changes as the browser's bars
+           show and hide (dvh), so the game is never cut off by them. */
+        height: 100%;
+        height: 100dvh;
         touch-action: none;
         user-select: none;
         -webkit-user-select: none;

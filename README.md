@@ -143,6 +143,8 @@ src/
   scenes/GameOverScene.js    final score and restart
   systems/StrokeInput.js     pointer capture and the glowing trail
   systems/staleTouches.js    frees touch slots held by fingers that are gone
+  systems/viewport.js        keeps the game fitted to what a phone actually shows
+  systems/recovery.js        reloads if lost graphics never come back
   systems/updates.js         "Get the latest version": clears caches and reloads
   systems/RuneRecognizer.js  $1 Unistroke Recognizer
   systems/runeTemplates.js   the three rune shapes
@@ -227,6 +229,20 @@ fall back. The stronger splashes leave drops on the lens that slide down and dry
 The spray stays under the rune panels and the HUD. Every cast that strikes shakes the
 screen briefly, less than a draugr boarding does. Players who ask their system for
 reduced motion get no shakes or flashes.
+
+**Fitting a phone's screen.** The visible part of a phone's page changes as the
+browser's bars show and hide, and right after the phone turns some browsers still
+report the old size for a moment. The game box follows the visible height (`dvh`),
+and the game measures again on every change of the visible area and twice more
+shortly after a turn. Pinch zoom and page scrolling are switched off, because either
+would push part of the game off screen.
+
+**Staying responsive.** A stroke still "in progress" after three seconds is stuck
+(its finger's release was lost), so a new touch replaces it. The game pauses in
+portrait and resumes in landscape no matter how many resize events a turning phone
+sends. A phone can take the GPU away from a page; Phaser rebuilds the graphics when
+the browser hands them back, and if it never does, the page reloads instead of
+staying frozen.
 
 **Touch on phones.** Holding a phone in landscape, a thumb or palm often rests on
 the screen. The game tracks up to four fingers. A finger that hasn't moved is treated
