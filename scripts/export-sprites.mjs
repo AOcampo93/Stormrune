@@ -1,6 +1,6 @@
 /*
- * export-sprites.mjs: turns the character designs in art/designs into the
- * sprite sheets the game loads.
+ * export-sprites.mjs: turns the designs in art/designs into the sprite
+ * sheets the game loads.
  *
  * Run with `npm run export:sprites` after changing a design. It needs Google
  * Chrome installed and an internet connection (the design files load their
@@ -8,12 +8,14 @@
  *
  * The designs (.dc.html) are animated SVG pages: each one draws every frame
  * of an animation as its own <svg>. For each animation this script:
- *   1. opens the page in headless Chrome and waits for the frames to render,
- *   2. rasterizes the frames the game uses at SCALE, with a transparent background,
+ *   1. opens the page in headless Chrome (setting design options if needed)
+ *      and waits for the frames to render,
+ *   2. rasterizes the frames the game uses with a transparent background,
  *   3. crops them all to the same box (the union of what is visible in any
- *      frame) so the character's feet stay at the same spot in every frame,
- *   4. packs them into a WebP sprite sheet no larger than 2048 px per side,
- *   5. records frame size and anchor in src/config/sprites.js.
+ *      frame), so an anchor point such as a character's feet stays put,
+ *   4. packs them into WebP sheets no larger than 2048 px per side (one
+ *      animation may need several sheets),
+ *   5. records sizes, anchors and sheet names in src/config/sprites.js.
  */
 
 import { createServer } from 'node:http';
@@ -27,7 +29,7 @@ const DESIGNS_DIR = join(ROOT, 'art/designs');
 const OUT_DIR = join(ROOT, 'public/assets/sprites');
 const MANIFEST = join(ROOT, 'src/config/sprites.js');
 
-/** Design units to game pixels. Thor ends up about 320 px tall. */
+/** Design units to game pixels for characters and the boat (Thor ~320 px tall). */
 const SCALE = 0.32;
 
 /** Gap between frames in a sheet, so filtering never bleeds into a neighbor. */
@@ -41,11 +43,16 @@ const THOR_ANCHOR = [500, 1250];
 /** Where Thor stands on the longship, in the boat's design units. */
 const BOAT_ANCHOR = [1300, 1720];
 
+/** A draugr is waist-deep: it is anchored where its body meets the water. */
+const DRAUGR_ANCHOR = [500, 878];
+
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
+const CHARACTER = '-150 -220 1300 1500';
 
 /**
- * One entry per sprite sheet. `frames` are 1-based frame numbers of the
- * design; attacks skip their slow wind-up so the strike lands right away.
+ * One entry per animation. `frames` are 1-based frame numbers of the design.
+ * Optional: `props` sets design options, `scale` overrides SCALE, `crop:
+ * false` keeps the whole frame, `exportViewBox` renders a different area.
  */
 const SHEETS = [
   {
@@ -61,12 +68,30 @@ const SHEETS = [
     stripTransform: true,
     anchor: BOAT_ANCHOR
   },
-  { key: 'thor-idle', design: 'Thor idle.dc.html', viewBox: '-150 -220 1300 1500', frames: range(1, 8), anchor: THOR_ANCHOR },
-  { key: 'thor-raise', design: 'Thor levantar martillo.dc.html', viewBox: '-150 -220 1300 1500', frames: range(6, 15), anchor: THOR_ANCHOR },
-  { key: 'thor-atk2', design: 'Thor ataque 2.dc.html', viewBox: '-150 -220 1300 1500', frames: range(4, 11), anchor: THOR_ANCHOR },
+  // Attacks skip their slow wind-up so the strike lands right away.
+  { key: 'thor-idle', design: 'Thor idle.dc.html', viewBox: CHARACTER, frames: range(1, 8), anchor: THOR_ANCHOR },
+  { key: 'thor-raise', design: 'Thor levantar martillo.dc.html', viewBox: CHARACTER, frames: range(6, 15), anchor: THOR_ANCHOR },
+  { key: 'thor-atk2', design: 'Thor ataque 2.dc.html', viewBox: CHARACTER, frames: range(4, 11), anchor: THOR_ANCHOR },
   { key: 'thor-atk3', design: 'Thor ataque 3.dc.html', viewBox: '-250 -220 1500 1660', frames: range(3, 12), anchor: THOR_ANCHOR },
-  { key: 'thor-hurt', design: 'Thor herido.dc.html', viewBox: '-150 -220 1300 1500', frames: range(1, 12), anchor: THOR_ANCHOR },
-  { key: 'thor-death', design: 'Thor muerte.dc.html', viewBox: '-150 -220 1300 1500', frames: range(1, 10), anchor: THOR_ANCHOR }
+  { key: 'thor-hurt', design: 'Thor herido.dc.html', viewBox: CHARACTER, frames: range(1, 12), anchor: THOR_ANCHOR },
+  { key: 'thor-death', design: 'Thor muerte.dc.html', viewBox: CHARACTER, frames: range(1, 10), anchor: THOR_ANCHOR },
+  { key: 'draugr-walk', design: 'Draugr caminando.dc.html', viewBox: CHARACTER, frames: range(1, 12), anchor: DRAUGR_ANCHOR },
+  { key: 'draugr-death', design: 'Draugr muerte.dc.html', viewBox: CHARACTER, frames: range(1, 12), anchor: DRAUGR_ANCHOR },
+  {
+    // The whole stormy sea, giant included, as a 16-frame loop. Its own rain
+    // and lightning are switched off: the game draws rain with particles and
+    // adds occasional lightning itself (the design flashes every 0.4 s, which
+    // would drown out the lightning that marks the player's hits). Exported
+    // at half the on-screen size and scaled up in game: a misty background
+    // loses little, and it halves the memory the 16 frames need.
+    key: 'sea',
+    design: 'Mar fondo.dc.html',
+    viewBox: '0 0 2000 1200',
+    frames: range(1, 16),
+    props: { vista: 'hoja', lluvia: false, relampago: false },
+    scale: 0.32,
+    crop: false
+  }
 ];
 
 // --- A tiny static server, so the designs can load their support.js ---------
@@ -92,6 +117,11 @@ await mkdir(OUT_DIR, { recursive: true });
 const manifest = {};
 for (const sheet of SHEETS) {
   await page.goto(baseUrl + encodeURIComponent(sheet.design));
+  if (sheet.props) {
+    // The design runtime exposes its options; e.g. the "sheet" view shows every frame.
+    await page.waitForFunction(() => typeof window.__dcSetProps === 'function' && window.__dcRootName?.());
+    await page.evaluate((props) => window.__dcSetProps(window.__dcRootName(), props), sheet.props);
+  }
   const selector = `svg[viewBox="${sheet.viewBox}"]`;
   await page.waitForFunction(
     ({ selector, needed }) => document.querySelectorAll(selector).length >= needed,
@@ -134,97 +164,108 @@ for (const sheet of SHEETS) {
       }
 
       // 3. The union of the visible pixels of all frames, plus a small margin.
-      let left = width, top = height, right = 0, bottom = 0;
-      for (const canvas of canvases) {
-        const alpha = canvas.getContext('2d').getImageData(0, 0, width, height).data;
-        for (let y = 0; y < height; y++) {
-          for (let x = 0; x < width; x++) {
-            if (alpha[(y * width + x) * 4 + 3] > 8) {
-              if (x < left) left = x;
-              if (x > right) right = x;
-              if (y < top) top = y;
-              if (y > bottom) bottom = y;
+      let left = 0, top = 0, frameWidth = width, frameHeight = height;
+      if (sheet.crop !== false) {
+        let x0 = width, y0 = height, x1 = 0, y1 = 0;
+        for (const canvas of canvases) {
+          const alpha = canvas.getContext('2d').getImageData(0, 0, width, height).data;
+          for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+              if (alpha[(y * width + x) * 4 + 3] > 8) {
+                if (x < x0) x0 = x;
+                if (x > x1) x1 = x;
+                if (y < y0) y0 = y;
+                if (y > y1) y1 = y;
+              }
             }
           }
         }
+        left = Math.max(0, x0 - 2);
+        top = Math.max(0, y0 - 2);
+        frameWidth = Math.min(width, x1 + 3) - left;
+        frameHeight = Math.min(height, y1 + 3) - top;
       }
-      left = Math.max(0, left - 2);
-      top = Math.max(0, top - 2);
-      const frameWidth = Math.min(width, right + 3) - left;
-      const frameHeight = Math.min(height, bottom + 3) - top;
 
-      // 4. Pack the cropped frames row by row.
+      // 4. Pack the frames row by row, starting a new sheet when one is full.
       const columns = Math.max(1, Math.min(canvases.length, Math.floor((maxSize + spacing) / (frameWidth + spacing))));
-      const rows = Math.ceil(canvases.length / columns);
-      const sheetCanvas = document.createElement('canvas');
-      sheetCanvas.width = columns * frameWidth + (columns - 1) * spacing;
-      sheetCanvas.height = rows * frameHeight + (rows - 1) * spacing;
-      const ctx = sheetCanvas.getContext('2d');
-      canvases.forEach((canvas, i) => {
-        const dx = (i % columns) * (frameWidth + spacing);
-        const dy = Math.floor(i / columns) * (frameHeight + spacing);
-        ctx.drawImage(canvas, left, top, frameWidth, frameHeight, dx, dy, frameWidth, frameHeight);
-      });
+      const maxRows = Math.max(1, Math.floor((maxSize + spacing) / (frameHeight + spacing)));
+      const perSheet = columns * maxRows;
+      const parts = [];
+      for (let first = 0; first < canvases.length; first += perSheet) {
+        const chunk = canvases.slice(first, first + perSheet);
+        const cols = Math.min(columns, chunk.length);
+        const rows = Math.ceil(chunk.length / cols);
+        const sheetCanvas = document.createElement('canvas');
+        sheetCanvas.width = cols * frameWidth + (cols - 1) * spacing;
+        sheetCanvas.height = rows * frameHeight + (rows - 1) * spacing;
+        const ctx = sheetCanvas.getContext('2d');
+        chunk.forEach((canvas, i) => {
+          const dx = (i % cols) * (frameWidth + spacing);
+          const dy = Math.floor(i / cols) * (frameHeight + spacing);
+          ctx.drawImage(canvas, left, top, frameWidth, frameHeight, dx, dy, frameWidth, frameHeight);
+        });
+        parts.push({
+          dataUrl: sheetCanvas.toDataURL('image/webp', quality),
+          frames: chunk.length,
+          width: sheetCanvas.width,
+          height: sheetCanvas.height
+        });
+      }
 
-      // 5. Where the anchor point lands inside a cropped frame (0..1).
-      const anchorX = (sheet.anchor[0] - vx) * scale - left;
-      const anchorY = (sheet.anchor[1] - vy) * scale - top;
-
+      // 5. Where the anchor point lands inside a frame (0..1).
+      const anchor = sheet.anchor ?? [vx, vy];
       return {
-        dataUrl: sheetCanvas.toDataURL('image/webp', quality),
+        parts,
         frameWidth,
         frameHeight,
-        sheetWidth: sheetCanvas.width,
-        sheetHeight: sheetCanvas.height,
-        originX: +(anchorX / frameWidth).toFixed(4),
-        originY: +(anchorY / frameHeight).toFixed(4)
+        originX: +(((anchor[0] - vx) * scale - left) / frameWidth).toFixed(4),
+        originY: +(((anchor[1] - vy) * scale - top) / frameHeight).toFixed(4)
       };
     },
-    { selector, sheet, scale: SCALE, spacing: SPACING, maxSize: MAX_SHEET_SIZE, quality: WEBP_QUALITY }
+    { selector, sheet, scale: sheet.scale ?? SCALE, spacing: SPACING, maxSize: MAX_SHEET_SIZE, quality: WEBP_QUALITY }
   );
 
-  if (result.sheetWidth > MAX_SHEET_SIZE || result.sheetHeight > MAX_SHEET_SIZE) {
-    throw new Error(`${sheet.key}: sheet ${result.sheetWidth}x${result.sheetHeight} exceeds ${MAX_SHEET_SIZE} px`);
+  const parts = [];
+  for (const [i, part] of result.parts.entries()) {
+    const key = result.parts.length === 1 ? sheet.key : `${sheet.key}-${i}`;
+    const bytes = Buffer.from(part.dataUrl.split(',')[1], 'base64');
+    await writeFile(join(OUT_DIR, `${key}.webp`), bytes);
+    parts.push({ key, url: `assets/sprites/${key}.webp`, frames: part.frames });
+    console.log(
+      `${key.padEnd(13)} ${String(part.frames).padStart(2)} frames ${result.frameWidth}x${result.frameHeight} ` +
+        `-> sheet ${part.width}x${part.height}, ${Math.round(bytes.length / 1024)} KB`
+    );
   }
-
-  const bytes = Buffer.from(result.dataUrl.split(',')[1], 'base64');
-  await writeFile(join(OUT_DIR, `${sheet.key}.webp`), bytes);
   manifest[sheet.key] = {
-    url: `assets/sprites/${sheet.key}.webp`,
+    scale: sheet.scale ?? SCALE,
     frameWidth: result.frameWidth,
     frameHeight: result.frameHeight,
     frames: sheet.frames.length,
     spacing: SPACING,
     originX: result.originX,
-    originY: result.originY
+    originY: result.originY,
+    parts
   };
-  console.log(
-    `${sheet.key.padEnd(11)} ${String(sheet.frames.length).padStart(2)} frames ` +
-      `${result.frameWidth}x${result.frameHeight} -> sheet ${result.sheetWidth}x${result.sheetHeight}, ` +
-      `${Math.round(bytes.length / 1024)} KB`
-  );
 }
 
 await browser.close();
 server.close();
 
-const header = `// GENERATED by scripts/export-sprites.mjs from the designs in art/designs.
-// Do not edit by hand: change a design (or the script) and run \`npm run export:sprites\`.
-`;
 await writeFile(
   MANIFEST,
-  `${header}
-/** Design units to game pixels used for every sprite. */
-export const SPRITE_SCALE = ${SCALE};
+  `// GENERATED by scripts/export-sprites.mjs from the designs in art/designs.
+// Do not edit by hand: change a design (or the script) and run \`npm run export:sprites\`.
 
 /** Where Thor stands on the longship, in the boat design's units. */
 export const BOAT_ANCHOR = ${JSON.stringify(BOAT_ANCHOR)};
 
 /**
- * One entry per sprite sheet. originX/originY (0..1) mark the anchor inside a
- * frame: Thor's feet, or the spot on the deck where Thor stands.
+ * One entry per animation. \`scale\` is design units to sheet pixels;
+ * originX/originY (0..1) mark the anchor inside a frame (Thor's feet, a
+ * draugr's waterline, Thor's spot on the deck); \`parts\` lists the sheet
+ * files, in frame order.
  */
 export const SPRITES = ${JSON.stringify(manifest, null, 2).replace(/"(\w+)":/g, '$1:').replace(/"/g, "'")};
 `
 );
-console.log(`\nWrote ${Object.keys(manifest).length} sheets to public/assets/sprites and src/config/sprites.js`);
+console.log(`\nWrote ${Object.keys(manifest).length} animations to public/assets/sprites and src/config/sprites.js`);

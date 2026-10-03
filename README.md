@@ -2,7 +2,7 @@
 
 Defend a Viking longship from the draugar by drawing Norse runes.
 
-![Stormrune: Thor calls down lightning on two draugar with a Sowilo rune](docs/screenshot.jpg)
+![Stormrune: Thor raises his hammer and lightning strikes a draugr, with a giant looming in the storm](docs/screenshot.jpg)
 
 ## Overview
 
@@ -51,7 +51,7 @@ Then open the address Vite prints (usually http://localhost:5173).
 | `npm run build`            | Production build into `dist/`                                |
 | `npm run preview`          | Serves the production build from `dist/`                     |
 | `npm run check:recognizer` | Accuracy test for the rune recognizer (runs in Node, no browser) |
-| `npm run export:sprites`   | Rebuilds Thor's and the longship's sprite sheets from the designs in `art/designs` (needs Google Chrome and an internet connection) |
+| `npm run export:sprites`   | Rebuilds all the sprite sheets (sea, longship, Thor, draugar) from the designs in `art/designs` (needs Google Chrome and an internet connection) |
 
 ### Play on your phone
 
@@ -78,10 +78,10 @@ This project was built for the Game Framework module of BYU-Idaho's CSE 310. It 
 
 All art and characters are original:
 
-- **Thor and the longship** are detailed vector designs made for this project
-  ([art/designs](art/designs)). `npm run export:sprites` renders their animation frames
-  into the WebP sprite sheets in [public/assets/sprites](public/assets/sprites).
-- **The draugr and the backgrounds** are hand-written SVGs in [public/assets](public/assets).
+- **The stormy sea (with a giant in the mist), the longship, Thor and the draugar** are
+  detailed vector designs made for this project ([art/designs](art/designs)).
+  `npm run export:sprites` renders their animation frames into the WebP sprite sheets in
+  [public/assets/sprites](public/assets/sprites).
 - **Lightning, rain, sparks, runes, the stroke trail and the HUD** are drawn with code at runtime.
 
 ## Development environment
@@ -98,14 +98,15 @@ All art and characters are original:
 ```
 src/
   main.js                    Phaser config: 1280x720 scaled with FIT, scene list
-  scenes/BootScene.js        loads the art and sprite sheets, registers Thor's animations
+  scenes/BootScene.js        loads the sprite sheets, registers the animations
   scenes/GameScene.js        orchestrates gameplay: levels, casting, damage
   scenes/GameOverScene.js    final score and restart
   systems/StrokeInput.js     pointer capture and the glowing trail
   systems/RuneRecognizer.js  $1 Unistroke Recognizer
   systems/runeTemplates.js   the three rune shapes
   systems/Lightning.js       procedural lightning bolts
-  entities/Draugr.js         enemy: approach, rune queue, death
+  systems/spriteSheets.js    loads sheets; joins animations split over several sheets
+  entities/Draugr.js         enemy: wading walk, rune queue, death by lightning
   entities/Longship.js       the boat; rocks, carrying Thor with it
   entities/Thor.js           the hero's animations: idle, three attacks, hurt, death
   ui/Hud.js                  lives, score and level
@@ -115,7 +116,7 @@ src/
   config/sprites.js          sprite sheet sizes and anchors (generated)
 scripts/check-recognizer.js  recognizer accuracy test
 scripts/export-sprites.mjs   design files -> sprite sheets
-art/designs/                 Thor and longship designs (animated SVG pages)
+art/designs/                 sea, longship, Thor and draugr designs (animated SVG pages)
 ```
 
 **Recognizing runes.** Each stroke goes through the $1 pipeline:
@@ -135,10 +136,18 @@ The implementation changes the paper in three places:
 
 `npm run check:recognizer` draws thousands of seeded synthetic strokes to measure accuracy. Each rune is recognized ≥ 98% of the time and confused with another rune ≤ 0.5% of the time. Taps, circles, spirals and similar shapes are rejected.
 
-**Fake depth.** A draugr's distance is never stored. Its size follows how far down
-the screen it is (25% on the horizon, 100% near the stern), nearer draugar are drawn
-on top, and the sea scrolls in parallax layers. They wade in along both sides of the
-boat and climb aboard where the hull's edge is, so the hull hides their legs.
+**Fake depth.** A draugr's distance is never stored. On a flat sea, something twice
+as far away sits half as far below the horizon and looks half as big, so a draugr's
+size is simply proportional to its distance below the horizon. Level with Thor's feet
+it is Thor's size, and nearer draugar are drawn on top. The sea's horizon is also where
+the longship's deck lines meet, so the boat, the sea and the draugar share one
+perspective. The draugar wade in waist-deep along both sides of the boat and climb
+aboard where the hull's edge is.
+
+**The background.** The sea, the sky and the giant are one 16-frame animation that
+fills the screen. The design's own rain and lightning are switched off: they would
+flash every 0.4 s and hide the lightning that marks the player's hits. The game draws
+rain with particles instead, and adds a faint, distant lightning strike every few seconds.
 
 **The rocking longship.** The boat is one still image inside a Phaser Container
 whose origin is the spot on the deck where Thor stands. Every frame the container
@@ -146,10 +155,17 @@ tilts, bobs and squashes slightly, with the same formula as the design's 12-fram
 loop. Thor's sprite is a child of that container, so he moves exactly like the deck.
 
 **Sprite pipeline.** Each design draws every frame of an animation as SVG.
-`scripts/export-sprites.mjs` opens them in headless Chrome and rasterizes the frames
-the game uses. It then crops them to a shared box, so Thor's feet stay put, and packs
-them into sheets of at most 2048 px. The frame sizes and anchors go to
-`src/config/sprites.js`.
+`scripts/export-sprites.mjs` opens them in headless Chrome, sets design options where
+needed, and rasterizes the frames the game uses. It then crops them to a shared box, so
+an anchor (Thor's feet, a draugr's waterline) stays put, and packs them into sheets of
+at most 2048 px, splitting long animations over several sheets. The frame sizes and
+anchors go to `src/config/sprites.js`.
+
+**One texture per draw call.** Phaser 4 normally batches sprites that use different
+textures and picks the right one in the shader with an exact float comparison. On
+software renderers (and potentially low-precision mobile GPUs) that comparison can
+miss and leave holes in sprites. The game sets `render.maxTextures: 1`, which costs a
+few extra draw calls and avoids the problem.
 
 ## Deploying later
 
@@ -180,6 +196,6 @@ script or workflow will be added once it is made.
 - A start menu, a pause menu and saved high scores.
 - Bosses: a frost giant and Jörmungandr.
 - Multi-stroke runes, such as an X-shaped Gebo special attack. These would need a $N-style recognizer.
-- Detailed, animated draugar to match Thor and the longship.
+- Turn the giant in the background into a boss fight.
 - Playtest the difficulty curve and the recognition threshold on more phones. A stricter score of 0.78 rejects more doodles but loses about 1% of valid Tiwaz strokes.
 - Haptic feedback on phones, and more accessibility options.

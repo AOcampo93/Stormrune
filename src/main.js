@@ -16,6 +16,15 @@ const config = {
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: PALETTE.skyTop,
+  render: {
+    // Phaser 4 batches sprites with different textures by picking the
+    // texture in the shader with an exact float comparison. Software
+    // renderers (and some low-precision mobile GPUs) interpolate that index
+    // slightly off, which drew parts of sprites as transparent holes. One
+    // texture per batch skips that code; the extra draw calls are negligible
+    // for a scene this size.
+    maxTextures: 1
+  },
   scale: {
     // Keep the 16:9 design resolution and letterbox whatever is left over,
     // so the same layout works on a monitor and on a phone in landscape.

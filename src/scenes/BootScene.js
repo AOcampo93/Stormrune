@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
-import { SPRITES } from '../config/sprites.js';
 import { Thor } from '../entities/Thor.js';
+import { Draugr } from '../entities/Draugr.js';
+import { loadSpriteSheets, sheetFrames } from '../systems/spriteSheets.js';
 
 /**
- * BootScene loads the art (SVG backgrounds and draugr, sprite sheets for the
- * longship and Thor), registers Thor's animations and builds the small
- * textures that are cheaper to generate with code than to ship as files.
- * It then hands over to the game.
+ * BootScene loads the sprite sheets exported from the designs in art/designs
+ * (the sea, the longship, Thor and the draugar), registers their animations
+ * and builds the small textures that are cheaper to generate with code than
+ * to ship as files. It then hands over to the game.
  */
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -14,31 +15,18 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // Relative paths, so the game also works when served from a sub-folder.
-    // Each SVG declares its own width and height, which Phaser rasterizes at.
-    this.load.svg('sky', 'assets/sky.svg');
-    this.load.svg('sea-back', 'assets/sea-back.svg');
-    this.load.svg('sea-front', 'assets/sea-front.svg');
-    this.load.svg('draugr', 'assets/draugr.svg');
-
-    // Sheets exported from the designs in art/designs (npm run export:sprites).
-    // `endFrame` stops Phaser from adding the empty cells of a sheet's last row.
-    for (const [key, sheet] of Object.entries(SPRITES)) {
-      if (sheet.frames === 1) {
-        this.load.image(key, sheet.url);
-      } else {
-        this.load.spritesheet(key, sheet.url, {
-          frameWidth: sheet.frameWidth,
-          frameHeight: sheet.frameHeight,
-          spacing: sheet.spacing,
-          endFrame: sheet.frames - 1
-        });
-      }
-    }
+    // Relative paths inside, so the game also works from a sub-folder.
+    loadSpriteSheets(this.load);
   }
 
   create() {
     Thor.createAnimations(this.anims);
+    Draugr.createAnimations(this.anims);
+    // The stormy sea loops at the design's 10 fps.
+    if (!this.anims.exists('sea:loop')) {
+      this.anims.create({ key: 'sea:loop', frames: sheetFrames(this.anims, 'sea'), frameRate: 10, repeat: -1 });
+    }
+
     this.createParticleTextures();
     this.createVignetteTexture();
     this.scene.start('GameScene');

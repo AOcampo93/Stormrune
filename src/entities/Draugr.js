@@ -1,14 +1,18 @@
 import Phaser from 'phaser';
 import { COLOR } from '../config/palette.js';
-import { HORIZON_Y, FULL_SIZE_Y, DEPTH } from '../config/layout.js';
+import { HORIZON_Y, SHIP_ANCHOR_Y, DEPTH } from '../config/layout.js';
+import { SPRITES } from '../config/sprites.js';
 import { fitRuneToBox } from '../systems/runeTemplates.js';
+import { sheetFrames, firstTexture } from '../systems/spriteSheets.js';
 
 /** Time (ms) a draugr needs to walk from the horizon to the ship at speed 1. */
 export const BASE_APPROACH_MS = 14000;
 
-/** Size on the horizon and at FULL_SIZE_Y; the change in scale fakes depth. */
-const FAR_SCALE = 0.25;
-const NEAR_SCALE = 1;
+/** Never smaller than this, so a draugr rising on the horizon is still visible. */
+const MIN_SCALE = 0.1;
+
+/** Lightning aims at the chest: this far above the waterline, in design units. */
+const CHEST_HEIGHT = 220;
 
 /** A frame hitch (or a resume after a pause) never advances more than this. */
 const MAX_STEP_MS = 50;
@@ -20,21 +24,34 @@ const PANEL_PADDING = 10;
 const PANEL_GAP_ABOVE_HEAD = 14;
 
 /**
- * A draugr: an undead warrior that rises from the waves and wades toward the
- * longship. Above its head floats its rune queue; each matching rune the
- * player draws removes the first rune, and an empty queue destroys it.
+ * A draugr: an undead warrior that rises from the waves and wades, waist-deep,
+ * toward the longship. Above its head floats its rune queue; each matching
+ * rune the player draws removes the first rune, and an empty queue destroys
+ * it (it is struck, burns and crumbles into the sea).
  *
  * Depth is faked: the lower on the screen a draugr is, the nearer it is, so
  * its size follows its height on screen (scaleAt) and nearer draugar draw on
  * top. It walks in a straight line from the horizon to the point on the
- * hull's edge where it climbs aboard.
+ * hull's edge where it climbs aboard. The sprite is anchored at its
+ * waterline, which is the point that walks along the sea's surface.
  *
- * This is a plain class that owns two Phaser objects (the body image and the
+ * This is a plain class that owns two Phaser objects (the body sprite and the
  * rune panel) rather than a Phaser GameObject subclass. The panel lives on
  * a higher depth layer than every body, so queues stay readable even when
  * draugar overlap. GameScene calls update() every frame.
  */
 export class Draugr {
+  /**
+   * Registers the walk and death animations with Phaser's global animation
+   * manager. Called once, after the sprite sheets have loaded (BootScene).
+   */
+  static createAnimations(anims) {
+    if (!anims.exists('draugr:walk')) {
+      anims.create({ key: 'draugr:walk', frames: sheetFrames(anims, 'draugr-walk'), frameRate: 8, repeat: -1 });
+      anims.create({ key: 'draugr:death', frames: sheetFrames(anims, 'draugr-death'), frameRate: 10 });
+    }
+  }
+
   /**
    * @param {Phaser.Scene} scene
    * @param {{startX: number, board: {x: number, y: number}, runeQueue: string[], speed: number}} options
@@ -51,14 +68,18 @@ export class Draugr {
 
     /** 0 on the horizon, 1 at the ship. */
     this.progress = 0;
-    /** Where its feet are on the water, before the cosmetic offsets. */
+    /** Where its waterline is on the sea, before the cosmetic offsets. */
     this.groundY = HORIZON_Y;
     /** Time alive (ms), drives the wading bob. */
     this.age = 0;
     /** Starts below the surface and tweens to 0: rising out of the waves. */
     this.riseOffset = 60;
 
-    this.body = scene.add.image(startX, HORIZON_Y, 'draugr').setOrigin(0.5, 1).setAlpha(0);
+    const walk = SPRITES['draugr-walk'];
+    this.body = scene.add.sprite(startX, HORIZON_Y, firstTexture('draugr-walk'));
+    this.body.setOrigin(walk.originX, walk.originY).setAlpha(0);
+    // Start each one somewhere in its stride, so a crowd doesn't move in step.
+    this.body.play({ key: 'draugr:walk', startFrame: Phaser.Math.Between(0, walk.frames - 1) });
     this.panel = scene.add.graphics();
     this.drawPanel();
 
@@ -80,9 +101,9 @@ export class Draugr {
     return this.progress >= 1;
   }
 
-  /** Where lightning should strike: the middle of the body. */
+  /** Where lightning should strike: the chest. */
   get hitPoint() {
-    return { x: this.body.x, y: this.body.y - this.body.displayHeight * 0.55 };
+    return { x: this.body.x, y: this.body.y - CHEST_HEIGHT * SPRITES['draugr-walk'].scale * this.body.scaleY };
   }
 
   /** Advances the walk toward the ship. */
@@ -100,14 +121,16 @@ export class Draugr {
     const scale = scaleAt(this.groundY);
 
     // Cosmetic offsets, scaled with the body: the rise out of the water
-    // and a gentle bob as it wades through the waves.
-    const bob = Math.sin(this.age / 260) * 4 * scale;
+    // and a gentle bob on the swell (the walk animation does the rest).
+    const bob = Math.sin(this.age / 260) * 2 * scale;
     const y = this.groundY + (this.riseOffset + bob) * scale;
 
     this.body.setPosition(x, y).setScale(scale);
     this.body.setDepth(DEPTH.enemies + this.groundY);
 
-    this.panel.setPosition(x, y - this.body.displayHeight - PANEL_GAP_ABOVE_HEAD);
+    // The panel floats just above the top of the sprite (its raised claws).
+    const top = y - this.body.originY * this.body.displayHeight;
+    this.panel.setPosition(x, top - PANEL_GAP_ABOVE_HEAD);
     this.panel.setDepth(DEPTH.runePanels + this.groundY * 0.1);
   }
 
@@ -131,17 +154,14 @@ export class Draugr {
     });
   }
 
-  /** Defeated: swell and fade away, then free the objects. */
+  /** Defeated: struck, it burns, crumbles and sinks; then the sprite is freed. */
   die() {
     this.panel.destroy();
-    this.scene.tweens.add({
-      targets: this.body,
-      scale: this.body.scale * 1.25,
-      alpha: 0,
-      duration: 280,
-      ease: 'Quad.easeOut',
-      onComplete: () => this.body.destroy()
-    });
+    // The death sheet is cropped differently: re-anchor at the waterline first.
+    const death = SPRITES['draugr-death'];
+    this.body.setOrigin(death.originX, death.originY);
+    this.body.play('draugr:death');
+    this.body.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => this.body.destroy());
   }
 
   /** Removes the draugr immediately (e.g. when it boards the ship). */
@@ -191,10 +211,11 @@ export class Draugr {
 }
 
 /**
- * Perspective: a draugr's size grows linearly with how far down the screen
- * its feet are, from FAR_SCALE on the horizon to NEAR_SCALE at FULL_SIZE_Y
- * (and a little beyond, for the ones that board near the stern).
+ * Perspective: on a flat sea, something twice as far away sits half as far
+ * below the horizon and looks half as big. So a draugr's size is simply its
+ * distance below the horizon, relative to Thor's (whose sprites share the
+ * same design scale): level with Thor's feet, a draugr is Thor's size.
  */
 function scaleAt(y) {
-  return FAR_SCALE + ((NEAR_SCALE - FAR_SCALE) * (y - HORIZON_Y)) / (FULL_SIZE_Y - HORIZON_Y);
+  return Math.max(MIN_SCALE, (y - HORIZON_Y) / (SHIP_ANCHOR_Y - HORIZON_Y));
 }

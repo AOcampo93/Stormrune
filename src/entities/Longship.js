@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { SPRITES, SPRITE_SCALE } from '../config/sprites.js';
+import { SPRITES } from '../config/sprites.js';
 import { SHIP_X, SHIP_ANCHOR_Y, DEPTH } from '../config/layout.js';
+import { firstTexture } from '../systems/spriteSheets.js';
 
 // The rocking motion comes straight from the "Bote idle" design: a 12-frame
 // loop at 6 fps (2 s) that tilts the boat around Thor's spot on the deck,
@@ -26,7 +27,7 @@ export class Longship {
     this.container = scene.add.container(SHIP_X, SHIP_ANCHOR_Y).setDepth(DEPTH.ship);
 
     const { originX, originY } = SPRITES.boat;
-    this.container.add(scene.add.image(0, 0, 'boat').setOrigin(originX, originY));
+    this.container.add(scene.add.image(0, 0, firstTexture('boat')).setOrigin(originX, originY));
   }
 
   /** Puts a game object on the deck, at Thor's spot; it rocks with the boat. */
@@ -43,6 +44,6 @@ export class Longship {
     // position, around its own origin, which is the anchor.
     this.container.scaleY = 1 + SQUASH * Math.sin(phase + Math.PI / 3);
     this.container.rotation = Phaser.Math.DegToRad(TILT_DEGREES * Math.sin(phase));
-    this.container.y = SHIP_ANCHOR_Y + BOB_DESIGN_UNITS * SPRITE_SCALE * Math.cos(phase);
+    this.container.y = SHIP_ANCHOR_Y + BOB_DESIGN_UNITS * SPRITES.boat.scale * Math.cos(phase);
   }
 }

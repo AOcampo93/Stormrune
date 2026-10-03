@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, HORIZON_Y, SAFE_MARGIN, DEPTH, LANES, gunwalePoint } from '../config/layout.js';
+import { GAME_WIDTH, GAME_HEIGHT, HORIZON_Y, BACKGROUND_SCALE, SAFE_MARGIN, DEPTH, LANES, gunwalePoint } from '../config/layout.js';
+import { SPRITES } from '../config/sprites.js';
 import { PALETTE, COLOR } from '../config/palette.js';
 import { StrokeInput } from '../systems/StrokeInput.js';
 import { RuneRecognizer } from '../systems/RuneRecognizer.js';
@@ -10,6 +11,7 @@ import { Longship } from '../entities/Longship.js';
 import { Thor } from '../entities/Thor.js';
 import { Hud } from '../ui/Hud.js';
 import { getLevelConfig } from '../config/levels.js';
+import { firstTexture } from '../systems/spriteSheets.js';
 
 /**
  * Random spread (px) around a lane's start on the horizon and its boarding
@@ -24,14 +26,8 @@ const KILL_SCORE = 100;
 /** Draugar that may board the ship before the game is lost. */
 const STARTING_LIVES = 3;
 
-/**
- * Background scroll speeds in px per ms. Layers further away move slower,
- * which gives the scene depth (parallax).
- */
-const SCROLL_SPEED = { sky: 0.004, seaBack: 0.018, seaFront: 0.05 };
-
-/** Height of the near wave band at the bottom of the screen. */
-const SEA_FRONT_HEIGHT = 130;
+/** Distant lightning over the sea every few seconds (ms, random in range). */
+const AMBIENT_LIGHTNING_MS = { min: 5000, max: 11000 };
 
 /**
  * GameScene orchestrates the gameplay. It wires input, rune recognition,
@@ -101,11 +97,11 @@ export class GameScene extends Phaser.Scene {
     this.setupOrientationPause();
 
     this.cameras.main.fadeIn(400);
+    this.scheduleAmbientLightning();
     this.startLevel(1);
   }
 
   update(time, delta) {
-    this.scrollBackground(delta);
     this.longship.update(delta);
 
     // Once the game is lost everything freezes while the screen fades out.
@@ -126,24 +122,26 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Sky and sea are TileSprites: wide images that repeat sideways, so
-   * shifting their tile position scrolls them forever without seams.
-   * The near wave band sits in front of the draugar (they wade through it)
-   * but behind the ship. Rain falls over everything except effects and HUD.
+   * The stormy sea (sky, waves and the giant in the mist) is one animated
+   * sprite looping 16 frames across the whole screen. Its sheets are half
+   * the on-screen size, so it is scaled up to fill the width.
+   * Rain falls over everything except effects and HUD.
    */
   createBackground() {
-    this.sky = this.add.tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, 'sky').setOrigin(0, 0).setDepth(DEPTH.sky);
-
-    // Nudged up a little so the wave crests break the horizon line.
-    this.seaBack = this.add
-      .tileSprite(0, HORIZON_Y - 8, GAME_WIDTH, 400, 'sea-back')
+    this.add
+      .sprite(0, 0, firstTexture('sea'))
       .setOrigin(0, 0)
-      .setDepth(DEPTH.seaBack);
+      .setScale(BACKGROUND_SCALE / SPRITES.sea.scale)
+      .setDepth(DEPTH.background)
+      .play('sea:loop');
 
-    this.seaFront = this.add
-      .tileSprite(0, GAME_HEIGHT - SEA_FRONT_HEIGHT, GAME_WIDTH, SEA_FRONT_HEIGHT, 'sea-front')
+    // A soft light that briefly washes over the scene with distant lightning.
+    this.skyFlash = this.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, COLOR.glow)
       .setOrigin(0, 0)
-      .setDepth(DEPTH.seaFront);
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setAlpha(0)
+      .setDepth(DEPTH.background);
 
     // Slanted rain: streaks spawn above the screen and are tilted to match
     // their sideways drift.
@@ -162,10 +160,25 @@ export class GameScene extends Phaser.Scene {
       .setDepth(DEPTH.rain);
   }
 
-  scrollBackground(delta) {
-    this.sky.tilePositionX += SCROLL_SPEED.sky * delta;
-    this.seaBack.tilePositionX += SCROLL_SPEED.seaBack * delta;
-    this.seaFront.tilePositionX += SCROLL_SPEED.seaFront * delta;
+  /**
+   * Now and then lightning strikes the sea far away, with a faint flash of
+   * the sky. It is thinner and dimmer than the player's strikes, and it never
+   * touches a draugr, so it can't be mistaken for a hit.
+   */
+  scheduleAmbientLightning() {
+    this.time.delayedCall(Phaser.Math.Between(AMBIENT_LIGHTNING_MS.min, AMBIENT_LIGHTNING_MS.max), () => {
+      const x = Phaser.Math.Between(60, GAME_WIDTH - 60);
+      this.lightning.strike(
+        { x: x + Phaser.Math.Between(-80, 80), y: -10 },
+        { x, y: HORIZON_Y - Phaser.Math.Between(0, 30) },
+        { thickness: 0.45, alpha: 0.35, depth: DEPTH.background }
+      );
+      if (!this.reducedMotion) {
+        this.skyFlash.setAlpha(0.14);
+        this.tweens.add({ targets: this.skyFlash, alpha: 0, duration: 450, ease: 'Quad.easeOut' });
+      }
+      this.scheduleAmbientLightning();
+    });
   }
 
   /**
@@ -369,10 +382,12 @@ export class GameScene extends Phaser.Scene {
       const hit = draugr.hitPoint;
       this.lightning.strike({ x: hit.x + Phaser.Math.Between(-120, 120), y: -10 }, hit);
       this.sparks.explode(14, hit.x, hit.y);
-      draugr.flash();
 
+      // A survivor flashes white; a destroyed one plays its own death instead.
       if (draugr.removeFirstRune()) {
         this.killDraugr(draugr);
+      } else {
+        draugr.flash();
       }
     }
   }
@@ -384,7 +399,7 @@ export class GameScene extends Phaser.Scene {
     this.removeDraugr(draugr);
 
     const { x, y } = draugr.hitPoint;
-    this.burst.explode(28, x, y);
+    this.burst.explode(12, x, y);
     draugr.die();
     this.addScore(KILL_SCORE, x, y);
 
@@ -526,6 +541,7 @@ export class GameScene extends Phaser.Scene {
   /** Snapshot of the gameplay state for "?debug" browser tests. */
   getDebugState() {
     return {
+      fps: Math.round(this.game.loop.actualFps),
       paused: this.scene.isPaused(),
       score: this.score,
       lives: this.lives,

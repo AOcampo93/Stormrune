@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { SPRITES } from '../config/sprites.js';
+import { sheetFrames, firstTexture } from '../systems/spriteSheets.js';
 
 /**
  * Thor's animations. Each rune has its own attack:
@@ -39,7 +40,7 @@ export class Thor {
       if (!anims.exists(animationKey(name))) {
         anims.create({
           key: animationKey(name),
-          frames: anims.generateFrameNumbers(sheet, { start: 0, end: SPRITES[sheet].frames - 1 }),
+          frames: sheetFrames(anims, sheet),
           frameRate,
           repeat
         });
@@ -53,7 +54,7 @@ export class Thor {
     this.current = null;
     this.onDeathComplete = null;
 
-    this.sprite = scene.add.sprite(0, 0, ANIMATIONS.idle.sheet);
+    this.sprite = scene.add.sprite(0, 0, firstTexture(ANIMATIONS.idle.sheet));
     this.sprite.on(Phaser.Animations.Events.ANIMATION_COMPLETE, this.handleComplete, this);
     this.play('idle');
   }

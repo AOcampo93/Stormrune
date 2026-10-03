@@ -28,14 +28,16 @@ export class Lightning {
    * Strikes from `from` (usually above the screen) to `to`, then fades out.
    * @param {{x: number, y: number}} from
    * @param {{x: number, y: number}} to
+   * @param {{thickness?: number, alpha?: number, depth?: number}} [options]
+   *   Thinner, fainter bolts drawn further back read as distant lightning.
    */
-  strike(from, to) {
+  strike(from, to, { thickness = 1, alpha = 1, depth = DEPTH.effects } = {}) {
     const bolt = buildBoltPath(from, to, GENERATIONS, JITTER);
 
     // Each bolt gets its own short-lived Graphics. Additive blending makes
     // overlapping strokes brighter, which reads as light rather than paint.
-    const g = this.scene.add.graphics().setDepth(DEPTH.effects).setBlendMode(Phaser.BlendModes.ADD);
-    drawBolt(g, bolt, 1);
+    const g = this.scene.add.graphics().setDepth(depth).setBlendMode(Phaser.BlendModes.ADD).setAlpha(alpha);
+    drawBolt(g, bolt, thickness);
 
     // One or two thinner forks, starting somewhere in the upper part of the bolt.
     const branchCount = Phaser.Math.Between(1, 2);
@@ -44,7 +46,7 @@ export class Lightning {
       const angle = Math.atan2(to.y - from.y, to.x - from.x) + Phaser.Math.FloatBetween(0.4, 0.8) * (Math.random() < 0.5 ? -1 : 1);
       const length = Phaser.Math.Between(70, 150);
       const end = { x: start.x + Math.cos(angle) * length, y: start.y + Math.sin(angle) * length };
-      drawBolt(g, buildBoltPath(start, end, GENERATIONS - 1, JITTER), 0.5);
+      drawBolt(g, buildBoltPath(start, end, GENERATIONS - 1, JITTER), 0.5 * thickness);
     }
 
     // A quick double flicker, then fade away and free the Graphics.
