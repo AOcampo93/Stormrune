@@ -37,7 +37,9 @@ if (DEBUG) {
       const gameScene = game.scene.getScene('GameScene');
       return {
         activeScenes: game.scene.getScenes(true).map((scene) => scene.scene.key),
-        ...(gameScene?.getDebugState?.() ?? {})
+        // The scene object exists from boot, but it has no gameplay state
+        // until it starts for the first time (after the assets load).
+        ...(gameScene?.draugar ? gameScene.getDebugState() : {})
       };
     }
   };
